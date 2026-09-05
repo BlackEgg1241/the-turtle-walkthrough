@@ -347,6 +347,7 @@ function fitCamera() {
 function updateScaleBar() { const pxPerM = canvas.clientWidth / (2 * plan.halfW); const nice = [1, 2, 5, 10, 20, 50].find(n => n * pxPerM >= 70) || 50; $('#scalebar .bar').style.width = (nice * pxPerM) + 'px'; $('#scalebar-label').textContent = nice + ' m'; }
 function setMode(mode) {
   S.mode = mode; camera = mode === 'plan' ? ortho : mode === 'photo' ? photoCam : persp;
+  renderer.setPixelRatio(Math.min(devicePixelRatio, mode === 'photo' ? 2 : (LITE ? 1.25 : 1.75)));   // photo mode is cheap to draw: give phones the sharper ratio there
   $$('#modes button').forEach(b => b.classList.toggle('on', b.dataset.mode === mode)); $('#scalebar').style.display = mode === 'plan' ? 'flex' : 'none';
   if (mode === 'photo' && !photo.name) showPano(nearestPano()); $('#photo-tip').style.display = mode === 'photo' ? 'block' : 'none';
   applyVisibility(); fitCamera();
@@ -375,7 +376,7 @@ function nearestPano() { let best = null, bd = 1e9; for (const p of activePanos(
 function showPano(key) {
   const p = DATA.panos.find(p => panoKey(p) === key); if (!p || !PANO_POS[key]) return;
   if (!photo.sphere) { photo.sphere = new THREE.Mesh(new THREE.SphereGeometry(60, 64, 32), new THREE.MeshBasicMaterial({ side: THREE.BackSide })); photo.sphere.scale.x = -1; photo.sphere.rotation.y = PANO_YAW; photoScene.add(photo.sphere); }
-  new THREE.TextureLoader().load(p.jpg_url || ('data:image/jpeg;base64,' + p.jpg), tex => { tex.encoding = THREE.sRGBEncoding; tex.minFilter = THREE.LinearFilter; photo.sphere.material.map = tex; photo.sphere.material.needsUpdate = true; });
+  new THREE.TextureLoader().load(p.jpg_url || ('data:image/jpeg;base64,' + p.jpg), tex => { tex.encoding = THREE.sRGBEncoding; tex.minFilter = THREE.LinearMipmapLinearFilter; tex.magFilter = THREE.LinearFilter; tex.generateMipmaps = true; tex.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy()); photo.sphere.material.map = tex; photo.sphere.material.needsUpdate = true; });
   photo.name = key;
   photo.hotspots.forEach(h => photoScene.remove(h)); photo.hotspots = [];
   const here = b2t(...PANO_POS[key]);
