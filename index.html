@@ -46,6 +46,7 @@
   #scalebar .bar{height:6px;width:120px;background:linear-gradient(90deg,var(--sand) 0 50%,var(--brass) 50% 100%);border-radius:2px;}
   #measure-tip,#photo-tip{position:absolute;left:50%;top:64px;transform:translateX(-50%);display:none;padding:8px 14px;font-size:13px;} #measure-tip b,#photo-tip b{color:var(--brass);}
   #touch-left{position:absolute;left:18px;bottom:18px;width:120px;height:120px;border-radius:50%;border:1px solid var(--sand-faint);background:rgba(20,21,22,.35);display:none;touch-action:none;}
+  #teleport{position:absolute;display:none;transform:translate(-50%,-130%);padding:10px 16px;border:1px solid var(--brass);background:var(--brass);color:#141516;font:600 13px var(--font-ui);border-radius:8px;cursor:pointer;box-shadow:0 4px 18px rgba(0,0,0,.45);white-space:nowrap;z-index:5;}
   #gyro{position:absolute;left:18px;bottom:152px;display:none;padding:9px 12px;border:1px solid var(--sand-faint);background:var(--ink-2);color:var(--sand);font:500 12px var(--font-ui);border-radius:6px;cursor:pointer;} #gyro.on{background:var(--brass);color:#141516;border-color:var(--brass);}
   #touch-left .knob{position:absolute;left:40px;top:40px;width:40px;height:40px;border-radius:50%;background:var(--brass);opacity:.85;}
   #loading{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:#0f1113;z-index:6;flex-direction:column;gap:14px;}
@@ -101,6 +102,7 @@
   <div id="photo-tip" class="glass"></div>
   <div id="touch-left"><div class="knob"></div></div>
   <button id="gyro" title="Look around by turning and tilting the phone">Toggle phone look</button>
+  <button id="teleport">Teleport here</button>
   <div id="loading"><div class="mark">The Turtle</div><div class="bar"><i id="loadbar"></i></div><div class="msg" id="loadmsg">Loading the model…</div></div>
   <div id="intro" style="display:none">
     <div class="card glass">
@@ -189,7 +191,7 @@ const G = {}; ['dims', 'plan', 'measure', 'trees'].forEach(k => { G[k] = new THR
 const sun = new THREE.DirectionalLight(0xfff3e0, 1.25); sun.position.set(0.58 * 70, 0.74 * 70, 0.33 * 70); sun.castShadow = !LITE;
 sun.shadow.mapSize.set(4096, 4096); Object.assign(sun.shadow.camera, { left: -34, right: 34, top: 34, bottom: -34, near: 5, far: 160 }); sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.03;
 sun.shadow.radius = 3; scene.add(sun); scene.add(sun.target);
-scene.add(new THREE.HemisphereLight(0xcfe0f5, 0x2a231d, 0.5));   // sky fill only; undersides stay in shade
+scene.add(new THREE.HemisphereLight(LITE ? 0xf2e6d6 : 0xcfe0f5, LITE ? 0x4a3d30 : 0x2a231d, LITE ? 0.7 : 0.5));   // sky fill; warmer and stronger on phones, which lose most of the real-time spots
 const composer = new THREE.EffectComposer(renderer); const renderPass = new THREE.RenderPass(scene, persp); composer.addPass(renderPass);
 const bloom = new THREE.UnrealBloomPass(new THREE.Vector2(1, 1), 0.22, 0.5, 0.92); composer.addPass(bloom);
 
@@ -206,13 +208,13 @@ function loadHDR() {   // ambient light and reflections from the tone-mapped sky
 }
 function loadGLB() {
   // hosted build: load the model by URL. Artifact build: parse inlined glTF JSON with data URIs (fetch and blob are blocked there)
-  if (isURL(DATA.glb)) return new Promise((res, rej) => new THREE.GLTFLoader().load(DATA.glb, res, e => { if (e && e.total) setLoad(0.3 + 0.45 * e.loaded / e.total, 'Loading the model… ' + Math.round(e.loaded / 1e6) + ' of ' + Math.round(e.total / 1e6) + ' MB' + (LITE ? ' (lighter version for this device)' : '')); }, rej));
+  if (isURL(DATA.glb)) return new Promise((res, rej) => new THREE.GLTFLoader().load(DATA.glb, res, e => { if (e && e.total) setLoad(0.3 + 0.45 * e.loaded / e.total, 'Step 1 of 2 · site and 12 m plan · ' + Math.round(e.loaded / 1e6) + ' of ' + Math.round(e.total / 1e6) + ' MB' + (LITE ? ' (lighter version for this device)' : '')); }, rej));
   try { window.createImageBitmap = undefined; } catch (e) {}
   return new Promise((res, rej) => new THREE.GLTFLoader().parse(DATA.glb, '', gltf => res(gltf), rej));
 }
 function loadConcept6() {   // third model: the compact plan on the existing roof (its own carport, bar, fit-out, lights, ground shadow)
   if (!isURL(DATA.concept6)) return Promise.resolve(null);
-  return new Promise(res => new THREE.GLTFLoader().load(DATA.concept6, res, e => { if (e && e.total) setLoad(0.9 + 0.06 * e.loaded / e.total, 'Loading the 6.7 m plan… ' + Math.round(e.loaded / 1e6) + ' MB'); }, () => res(null)));
+  return new Promise(res => new THREE.GLTFLoader().load(DATA.concept6, res, e => { if (e && e.total) setLoad(0.9 + 0.08 * e.loaded / e.total, 'Step 2 of 2 · 6.7 m plan · ' + Math.round(e.loaded / 1e6) + ' of ' + Math.round(e.total / 1e6) + ' MB'); }, () => res(null)));
 }
 function loadToday() {   // second, small model: the existing carport at the measured depth, baked the same way
   if (!isURL(DATA.today)) return Promise.resolve(null);
@@ -261,7 +263,7 @@ function prepareScene(gltf, model, forceColl) {
     let has = false;
     mats.forEach(m => {
       if (!m || !m.aoMap) return;
-      m.lightMap = m.aoMap; m.lightMapIntensity = DATA.lightmaps.scale * 0.85; m.aoMap = null; m.envMapIntensity = 0.15; m.needsUpdate = true; has = true;
+      m.lightMap = m.aoMap; m.lightMapIntensity = DATA.lightmaps.scale * (LITE ? 0.95 : 0.85); m.aoMap = null; m.envMapIntensity = 0.15; m.needsUpdate = true; has = true;
     });
     if (has) { o.layers.set(1); o.receiveShadow = false; lmCount++; }
   });
@@ -393,7 +395,19 @@ function photoClick(e) {
 
 /* ---------- pointer, wheel, keys, touch ---------- */
 let drag = null; const ray = new THREE.Raycaster(); const floorPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -0.1); let measurePts = [];
-canvas.addEventListener('pointerdown', e => { if (e.button !== 0 && e.pointerType === 'mouse') return; canvas.setPointerCapture(e.pointerId); drag = { x: e.clientX, y: e.clientY, moved: 0 }; canvas.focus(); });
+/* long press on the floor in walk mode: offer to teleport there (phones have no keys to walk with) */
+let pressTimer = null, teleportTo = null; const tpBtn = $('#teleport');
+function hideTeleport() { tpBtn.style.display = 'none'; teleportTo = null; }
+function offerTeleport(cx, cy) {
+  if (S.mode !== 'walk' || S.measure) return;
+  const r = canvas.getBoundingClientRect(); const nd = new THREE.Vector2(((cx - r.left) / r.width) * 2 - 1, -((cy - r.top) / r.height) * 2 + 1);
+  ray.setFromCamera(nd, persp); const hit = ray.intersectObjects(meshes.filter(o => o.visible), false)[0];
+  if (!hit || !hit.face) return; const up = hit.face.normal.clone().transformDirection(hit.object.matrixWorld).y;
+  if (up < 0.7 || hit.point.y > 0.6 || hit.point.y < -0.5) return;   // only a floor or the ground, not walls, roofs or furniture
+  teleportTo = hit.point.clone(); tpBtn.style.left = cx + 'px'; tpBtn.style.top = cy + 'px'; tpBtn.style.display = 'block'; clearTimeout(tpBtn._t); tpBtn._t = setTimeout(hideTeleport, 4000);
+}
+tpBtn.addEventListener('click', e => { e.stopPropagation(); if (teleportTo) walk.pos.set(teleportTo.x, P.eye, teleportTo.z); hideTeleport(); canvas.focus(); });
+canvas.addEventListener('pointerdown', e => { if (e.button !== 0 && e.pointerType === 'mouse') return; canvas.setPointerCapture(e.pointerId); drag = { x: e.clientX, y: e.clientY, moved: 0 }; canvas.focus(); hideTeleport(); clearTimeout(pressTimer); const cx = e.clientX, cy = e.clientY; pressTimer = setTimeout(() => { if (drag && drag.moved < 10) offerTeleport(cx, cy); }, 550); });
 canvas.addEventListener('pointermove', e => {
   if (!drag) return; const dx = e.clientX - drag.x, dy = e.clientY - drag.y; drag.x = e.clientX; drag.y = e.clientY; drag.moved += Math.abs(dx) + Math.abs(dy);
   if (gyro.on && (S.mode === 'walk' || S.mode === 'photo')) { gyro.base += dx * 0.004; return; }
@@ -402,8 +416,8 @@ canvas.addEventListener('pointermove', e => {
   else if (S.mode === 'orbit') { orbit.theta -= dx * 0.006; orbit.phi = THREE.MathUtils.clamp(orbit.phi - dy * 0.006, 0.12, 1.52); }
   else { const u = 2 * plan.halfW / canvas.clientWidth; plan.cx -= dx * u; plan.cz -= dy * u; }
 });
-canvas.addEventListener('pointerup', e => { if (drag && drag.moved < 6) { if (S.mode === 'photo') photoClick(e); else if (S.measure) measureClick(e); } drag = null; });
-canvas.addEventListener('pointercancel', () => drag = null);
+canvas.addEventListener('pointerup', e => { clearTimeout(pressTimer); if (drag && drag.moved < 6) { if (S.mode === 'photo') photoClick(e); else if (S.measure) measureClick(e); } drag = null; });
+canvas.addEventListener('pointercancel', () => { clearTimeout(pressTimer); drag = null; });
 canvas.addEventListener('wheel', e => { e.preventDefault();
   if (S.mode === 'orbit') orbit.dist = THREE.MathUtils.clamp(orbit.dist * (1 + e.deltaY * 0.0012), 3, 90);
   else if (S.mode === 'plan') { plan.halfW = THREE.MathUtils.clamp(plan.halfW * (1 + e.deltaY * 0.0012), 3, 70); fitCamera(); }
@@ -483,7 +497,9 @@ $('#concept').addEventListener('click', e => { const b = e.target.closest('butto
 $$('#modes button').forEach(b => b.addEventListener('click', () => { setMode(b.dataset.mode); if (b.dataset.mode === 'photo') showPano(photo.name || nearestPano()); canvas.focus(); }));
 $('#ck-roof').addEventListener('change', e => { S.roof = e.target.checked; applyVisibility(); }); $('#ck-people').addEventListener('change', e => { S.people = e.target.checked; applyVisibility(); });
 $('#ck-dims').addEventListener('change', e => { S.dims = e.target.checked; applyVisibility(); }); $('#ck-labels').addEventListener('change', e => { S.labels = e.target.checked; photo.hotspots.forEach(h => h.visible = S.labels); }); $('#ck-measure').addEventListener('change', e => setMeasure(e.target.checked));
-$('#panel-toggle').addEventListener('click', () => $('#panel').classList.toggle('open'));
+$('#panel-toggle').addEventListener('click', e => { e.stopPropagation(); $('#panel').classList.toggle('open'); });
+// on phones the options panel is an overlay: a tap anywhere outside it (the scene, the mode buttons, the joystick) closes it
+document.addEventListener('pointerdown', e => { const p = $('#panel'); if (p.classList.contains('open') && !p.contains(e.target) && e.target !== $('#panel-toggle')) p.classList.remove('open'); }, true);
 const dismiss = () => { $('#intro').style.display = 'none'; canvas.focus(); }; $('#start').addEventListener('click', dismiss); $('#intro').addEventListener('click', e => { if (e.target === $('#intro')) dismiss(); });
 
 /* ---------- go ---------- */
@@ -493,7 +509,7 @@ window.addEventListener('error', e => { const l = $('#loading'); if (l && l.styl
     setLoad(0.1, 'Preparing the sky…'); await loadHDR(); setLoad(0.3, 'Decoding the model…');
     const gltf = await loadGLB(); setLoad(0.75, 'Placing ' + (DATA.nodes ? Object.keys(DATA.nodes).length : '') + ' objects…');
     prepareScene(gltf, 'main'); setLoad(0.85, 'Loading the carport as it is today…'); const tg = await loadToday(); if (tg) prepareScene(tg, 'today', 'Today carport');
-    if (S.concept === '6' && !/plan12/.test(location.hash)) { setLoad(0.9, 'Loading the 6.7 m plan…'); await ensureConcept6(); }   // the default plan is part of the first load
+    if (S.concept === '6' && !/plan12/.test(location.hash)) { setLoad(0.9, 'Step 2 of 2 · 6.7 m plan…'); await ensureConcept6(); }   // the default plan is part of the first load
     renderViewpoints(); buildDims(); buildPlan(); updateReadout(); setLoad(1, 'Ready'); console.log('TTDBG ' + JSON.stringify(Object.fromEntries(Object.entries(byColl).map(([k, v]) => [k, v.length]))));
     $('#loading').style.display = 'none'; $('#intro').style.display = 'flex';
   } catch (e) { $('#loadmsg').textContent = 'Could not load the model: ' + e; console.error(e); }
