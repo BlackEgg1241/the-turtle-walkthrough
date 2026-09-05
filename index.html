@@ -100,7 +100,7 @@
   <div id="measure-tip" class="glass"></div>
   <div id="photo-tip" class="glass"></div>
   <div id="touch-left"><div class="knob"></div></div>
-  <button id="gyro" title="Look around by turning and tilting the phone">Look by turning the phone</button>
+  <button id="gyro" title="Look around by turning and tilting the phone">Toggle phone look</button>
   <div id="loading"><div class="mark">The Turtle</div><div class="bar"><i id="loadbar"></i></div><div class="msg" id="loadmsg">Loading the model…</div></div>
   <div id="intro" style="display:none">
     <div class="card glass">
@@ -466,7 +466,7 @@ async function setGyro(on) {
     let r = 'denied'; try { r = await DeviceOrientationEvent.requestPermission(); } catch (err) {}
     if (r !== 'granted') { measureTip('Motion access was not allowed. Allow it in Settings › Safari › Motion & Orientation Access'); setTimeout(() => { if (!S.measure) measureTip(''); }, 5000); return; }
   }
-  gyro.on = on; gyro.base = null; $('#gyro').classList.toggle('on', on); $('#gyro').textContent = on ? 'Phone look on · drag to re-centre' : 'Look by turning the phone';
+  gyro.on = on; gyro.base = null; $('#gyro').classList.toggle('on', on); $('#gyro').textContent = on ? 'Toggle phone look · on' : 'Toggle phone look';
   window.removeEventListener('deviceorientation', onOrient); if (on) window.addEventListener('deviceorientation', onOrient);
 }
 if (!('DeviceOrientationEvent' in window)) $('#gyro').style.display = 'none';
