@@ -79,7 +79,7 @@
   <aside id="panel" class="glass" aria-label="Options">
     <section><h3>Viewpoints</h3><div class="vp" id="viewpoints"></div></section>
     <section><h3>Show</h3>
-      <div class="seg" id="concept"><button data-concept="12" class="on">12 m plan</button><button data-concept="6">6.7 m plan</button></div>
+      <div class="seg" id="concept"><button data-concept="6" class="on">6.7 m plan</button><button data-concept="12">12 m plan</button></div>
       <div class="seg" id="stage"><button data-stage="today">Today</button><button data-stage="proposed" class="on">Proposed</button></div>
       <label class="ck"><input type="checkbox" id="ck-roof" checked> Roof</label>
       <label class="ck"><input type="checkbox" id="ck-people" checked> People</label>
@@ -88,7 +88,7 @@
       <label class="ck"><input type="checkbox" id="ck-measure"> Measure tool (click two floor points)</label>
     </section>
     <section><h3>Footprint</h3>
-      <p class="note">Two plans to compare: the <b>12.07 × 12.0 m</b> roof as sketched, walls on the column line; and a compact plan on the existing <b>12.07 × 6.7 m</b> roof with an L-shaped bar, stools only and the link moved along. Today shows the carport as it is. Confirm the depth on site before anything is priced.</p>
+      <p class="note">Two plans to compare: the compact plan on the existing <b>12.07 × 6.7 m</b> roof (L-shaped bar, stools only, link moved along), shown first; and the <b>12.07 × 12.0 m</b> roof as sketched, walls on the column line. Today shows the carport as it is. Confirm the depth on site before anything is priced.</p>
     </section>
     <section><h3>Readout</h3><dl class="readout" id="readout"></dl></section>
   </aside>
@@ -111,6 +111,7 @@
         <li><span>Photo</span><span>Cycles-rendered 360° views at each spot: drag to look, click a hotspot to move.</span></li>
         <li><span>Plan</span><span>Top-down with a 1 m grid, north arrow and scale bar.</span></li>
         <li><span>Today / Proposed</span><span>Flip between the carport as it is and the bar as proposed.</span></li>
+        <li><span>6.7 m / 12 m plan</span><span>The compact plan on the existing roof opens first; switch to the 12 m plan to compare.</span></li>
       </ul>
       <button id="start">Start walking</button>
       <p class="fine">Keys 1–9 jump to viewpoints · R lifts the roof · M measures between two floor points · Esc clears.</p>
@@ -165,7 +166,7 @@ const srcOf = (o, k) => o[k + '_url'] ? o[k + '_url'] : 'data:image/' + (k === '
 const b64buf = b64 => { const bin = atob(b64); const u8 = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i); return u8.buffer; };
 const P = { W: 12.07, D: 12.0, Dtoday: 6.7, ov: 0.5, gap: 1.5, clear: 2.4, wallT: 0.1, eye: 1.6, backBarD: 0.6, walkway: 2.0, barD: 1.0, barEndGap: 1.0 };
 const PLANS = { '12': { D: 12.0, walkway: 2.0, barSE: 1.0, linkY: null }, '6': { D: 6.7, walkway: 1.2, barSE: 2.8, linkY: 4.4 } };   // per-plan layout numbers, must match tt_bar.py
-const S = { mode: 'walk', stage: 'proposed', concept: '12', roof: true, people: true, dims: false, measure: false, labels: true };
+const S = { mode: 'walk', stage: 'proposed', concept: '6', roof: true, people: true, dims: false, measure: false, labels: true };
 // Blender-space positions of the 360° photo spots (must match tt_scene.py)
 const PANO_POS = { '12:Pano_carpark': [P.W / 2 + 1.5, -11.5, 1.6], '12:Pano_deck': [P.W / 2, -2.4, 1.6], '12:Pano_doorway': [P.W / 2, 1.4, 1.6], '12:Pano_tables': [P.W / 2 + 1, 4.2, 1.6], '12:Pano_at_the_bar': [5.2, 6.7, 1.55], '12:Pano_behind_the_bar': [P.W / 2 + 0.5, 9.8, 1.6], '12:Pano_link': [-0.75, 6.4, 1.6],
   '6:Pano_carpark': [P.W / 2 + 1.5, -11.5, 1.6], '6:Pano_deck': [P.W / 2, -2.4, 1.6], '6:Pano_doorway': [P.W / 2, 1.4, 1.6], '6:Pano_end_zone': [1.47, 2.07, 1.6], '6:Pano_at_the_bar': [6.535, 2.13, 1.55], '6:Pano_behind_the_bar': [7.065, 4.93, 1.6], '6:Pano_link': [-0.75, 4.4, 1.6] };
@@ -491,12 +492,13 @@ window.addEventListener('error', e => { const l = $('#loading'); if (l && l.styl
     setLoad(0.1, 'Preparing the sky…'); await loadHDR(); setLoad(0.3, 'Decoding the model…');
     const gltf = await loadGLB(); setLoad(0.75, 'Placing ' + (DATA.nodes ? Object.keys(DATA.nodes).length : '') + ' objects…');
     prepareScene(gltf, 'main'); setLoad(0.85, 'Loading the carport as it is today…'); const tg = await loadToday(); if (tg) prepareScene(tg, 'today', 'Today carport');
+    if (S.concept === '6' && !/plan12/.test(location.hash)) { setLoad(0.9, 'Loading the 6.7 m plan…'); await ensureConcept6(); }   // the default plan is part of the first load
     renderViewpoints(); buildDims(); buildPlan(); updateReadout(); setLoad(1, 'Ready'); console.log('TTDBG ' + JSON.stringify(Object.fromEntries(Object.entries(byColl).map(([k, v]) => [k, v.length]))));
     $('#loading').style.display = 'none'; $('#intro').style.display = 'flex';
   } catch (e) { $('#loadmsg').textContent = 'Could not load the model: ' + e; console.error(e); }
   setMode('walk'); VIEWS[0][1](); fitCamera();
   if (/plan6/.test(location.hash)) await ensureConcept6(); else setTimeout(ensureConcept6, 1500);   // the 6.7 m plan loads in the background once the page is up
-  if (location.hash) { if (/plan6/.test(location.hash)) setConcept('6'); if (/today/.test(location.hash)) setStage('today'); const m = location.hash.match(/view=(\d)/); if (m) VIEWS[+m[1] - 1][1](); if (/photo/.test(location.hash)) { setMode('photo'); showPano(nearestPano()); } if (/nointro/.test(location.hash)) dismiss(); if (/nopeople/.test(location.hash)) { S.people = false; $('#ck-people').checked = false; applyVisibility(); } if (/noroof/.test(location.hash)) { S.roof = false; $('#ck-roof').checked = false; applyVisibility(); } }
+  if (location.hash) { if (/plan6/.test(location.hash)) setConcept('6'); if (/plan12/.test(location.hash)) setConcept('12'); if (/today/.test(location.hash)) setStage('today'); const m = location.hash.match(/view=(\d)/); if (m) VIEWS[+m[1] - 1][1](); if (/photo/.test(location.hash)) { setMode('photo'); showPano(nearestPano()); } if (/nointro/.test(location.hash)) dismiss(); if (/nopeople/.test(location.hash)) { S.people = false; $('#ck-people').checked = false; applyVisibility(); } if (/noroof/.test(location.hash)) { S.roof = false; $('#ck-roof').checked = false; applyVisibility(); } }
 })();
 window.addEventListener('resize', fitCamera);
 let last = performance.now();
