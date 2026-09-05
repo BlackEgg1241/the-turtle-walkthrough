@@ -172,17 +172,18 @@ const panoKey = p => (p.concept || '12') + ':' + p.name, activePanos = () => DAT
 
 /* ---------- renderer ---------- */
 const canvas = $('#view');
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
-renderer.setPixelRatio(Math.min(devicePixelRatio, 1.75)); renderer.outputEncoding = THREE.sRGBEncoding;
+// LITE (phones, tablets, small laptops): no antialias, lower pixel ratio, no shadows, no bloom, few real-time lights, no drinks/glassware, log depth against z-fighting
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: !LITE, powerPreference: 'high-performance', logarithmicDepthBuffer: LITE });
+renderer.setPixelRatio(Math.min(devicePixelRatio, LITE ? 1.25 : 1.75)); renderer.outputEncoding = THREE.sRGBEncoding;
 renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 0.8;
-renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap; renderer.physicallyCorrectLights = true;
+renderer.shadowMap.enabled = !LITE; renderer.shadowMap.type = THREE.PCFSoftShadowMap; renderer.physicallyCorrectLights = true;
 const scene = new THREE.Scene();
-const persp = new THREE.PerspectiveCamera(68, 1, 0.05, 500); persp.rotation.order = 'YXZ'; persp.layers.enable(1);
+const persp = new THREE.PerspectiveCamera(68, 1, LITE ? 0.12 : 0.05, LITE ? 400 : 500); persp.rotation.order = 'YXZ'; persp.layers.enable(1);
 const ortho = new THREE.OrthographicCamera(-10, 10, 10, -10, 0.1, 200); ortho.up.set(0, 0, -1); ortho.layers.enable(1);
 const photoScene = new THREE.Scene(); const photoCam = new THREE.PerspectiveCamera(75, 1, 0.1, 200); photoCam.rotation.order = 'YXZ';
 let camera = persp;
 const G = {}; ['dims', 'plan', 'measure', 'trees'].forEach(k => { G[k] = new THREE.Group(); scene.add(G[k]); });
-const sun = new THREE.DirectionalLight(0xfff3e0, 1.25); sun.position.set(0.58 * 70, 0.74 * 70, 0.33 * 70); sun.castShadow = true;
+const sun = new THREE.DirectionalLight(0xfff3e0, 1.25); sun.position.set(0.58 * 70, 0.74 * 70, 0.33 * 70); sun.castShadow = !LITE;
 sun.shadow.mapSize.set(4096, 4096); Object.assign(sun.shadow.camera, { left: -34, right: 34, top: 34, bottom: -34, near: 5, far: 160 }); sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.03;
 sun.shadow.radius = 3; scene.add(sun); scene.add(sun.target);
 scene.add(new THREE.HemisphereLight(0xcfe0f5, 0x2a231d, 0.5));   // sky fill only; undersides stay in shade
@@ -221,13 +222,14 @@ function prepareScene(gltf, model, forceColl) {
   root.traverse(o => {
     if (o.isLight) {
       o.userData.model = model;
+      if (LITE && !/pendant|Wine wall|Awning light/i.test(o.name || '')) { o.userData.culled = true; o.visible = false; o.intensity = 0; return; }   // phones: only the pendants, the wine-wall spots and the awning lights stay real-time
       if (o.isPointLight) {   // pendants: the shade blocks upward light in the renders, so make them downward spots here
         const sp = new THREE.SpotLight(o.color, 26, 9, 1.05, 0.6, 2); sp.position.copy(o.position); sp.target.position.set(o.position.x, o.position.y - 1, o.position.z); sp.name = o.name; sp.userData.replaced = true; sp.userData.model = model;
         o.parent.add(sp); o.parent.add(sp.target); o.visible = false; o.intensity = 0; return;
       }
       o.intensity = 30; o.distance = 12; o.decay = 2; o.castShadow = false; if (o.isSpotLight) { o.angle = Math.min(o.angle, 0.8); o.penumbra = 0.6; } return; }
     if (!o.isMesh) return;
-    meshes.push(o); fresh.push(o); o.castShadow = true; o.receiveShadow = true;
+    meshes.push(o); fresh.push(o); o.castShadow = !LITE; o.receiveShadow = !LITE;
     const nm = o.name || '', mats = Array.isArray(o.material) ? o.material : [o.material]; const ttl = tag(o, 'ttl'), ttc = tag(o, 'ttc'); const onm = ttl || nm; o.userData.ttl = ttl; o.userData.ttc = ttc; o.userData.model = model; if (model === 'c6' && (ttl === 'Ground' || /^Ground/.test(nm))) hasC6Ground = true;
     mats.forEach(m => {
       if (!m) return; m.envMapIntensity = 0.6;
@@ -238,12 +240,17 @@ function prepareScene(gltf, model, forceColl) {
     });
     if (ttl === 'Ground' || /^Ground/.test(nm)) { o.castShadow = false; }
     const coll = forceColl || (ttc !== undefined ? ttc : (DATA.nodes[nm] || '')); (byColl[coll] = byColl[coll] || []).push(o); o.userData.coll = coll;
-    const bb = new THREE.Box3().setFromObject(o); o.userData.bb = bb;
+    const bb = new THREE.Box3().setFromObject(o); o.userData.bb = bb; o.userData.size = Math.max(bb.max.x - bb.min.x, bb.max.y - bb.min.y, bb.max.z - bb.min.z);
     if (bb.min.y > 2.15 && coll !== 'Site') roofMeshes.push(o);
     const h = bb.max.y - bb.min.y, blocks = bb.min.y < 1.2 && bb.max.y > 0.45 && !/^(Door leaf|Ground|Front walkway|Walkway|Floor|Link floor|Verandah slab|Forecourt|Entry ramp|Slab edge|Breezeway floor)/.test(ttl || '') && (bb.max.x - bb.min.x) < 60;
     if (blocks) colliders.push({ x0: bb.min.x, x1: bb.max.x, z0: bb.min.z, z1: bb.max.z, o });
   });
   if (model === 'main') { steelSwap.monument = mon[0] || null; steelSwap.deepOcean = deep[0] || null; }
+  if (LITE) {   // drinks, glasses and bottles: hundreds of copies of a few small meshes. Skip them on small devices (draw calls)
+    const uses = new Map(); fresh.forEach(o => uses.set(o.geometry, (uses.get(o.geometry) || 0) + 1));
+    let culled = 0; fresh.forEach(o => { if (uses.get(o.geometry) > 30 && o.userData.size < 0.4 && o.userData.coll !== 'People') { o.userData.culled = true; culled++; } });
+    console.log('TTCULL ' + culled + ' small repeated meshes hidden');
+  }
   // baked Cycles lighting arrives as the occlusion texture (the only way the lightmap UV survives packing)
   let lmCount = 0;
   fresh.forEach(o => {
@@ -312,10 +319,10 @@ function applyVisibility() {
       else if (isPeople) v = proposed && !c6 && S.people;
       else if (isProp) v = proposed && !c6;
       else v = true;
-      o.visible = v && !roofOff(o);
+      o.visible = v && !roofOff(o) && !o.userData.culled;
     });
   }
-  scene.traverse(o => { if (o.isLight && o !== sun && !(o.isPointLight && o.intensity === 0)) { const m = o.userData.model; o.visible = proposed && (m === 'c6' ? c6 : m === 'main' ? !c6 : true); } });
+  scene.traverse(o => { if (o.isLight && o !== sun && !(o.isPointLight && o.intensity === 0)) { const m = o.userData.model; o.visible = !o.userData.culled && proposed && (m === 'c6' ? c6 : m === 'main' ? !c6 : true); } });
   if (steelSwap.monument && steelSwap.deepOcean) (byColl['Existing carport'] || []).forEach(o => { if ((o.userData.model || 'main') === 'main' && (o.material === steelSwap.monument || o.material === steelSwap.deepOcean)) o.material = proposed ? steelSwap.monument : steelSwap.deepOcean; });
   G.dims.visible = S.dims; G.plan.visible = S.mode === 'plan';
 }
@@ -471,7 +478,7 @@ window.addEventListener('resize', fitCamera);
 let last = performance.now();
 (function loop(now) {
   const dt = Math.min(0.05, (now - last) / 1000); last = now; if (S.mode === 'walk') stepWalk(dt); updateCamera();
-  if (S.mode === 'photo') renderer.render(photoScene, photoCam); else if (S.mode === 'plan') renderer.render(scene, ortho); else { renderPass.camera = persp; composer.render(); }
+  if (S.mode === 'photo') renderer.render(photoScene, photoCam); else if (S.mode === 'plan') renderer.render(scene, ortho); else if (LITE) renderer.render(scene, persp); else { renderPass.camera = persp; composer.render(); }
   requestAnimationFrame(loop);
 })(last);
 </script>
