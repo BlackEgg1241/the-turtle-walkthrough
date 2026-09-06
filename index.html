@@ -431,7 +431,7 @@ function makeBeer(bx, by, plan, kind) {   // bx, by in Blender metres; stands on
   const onMat = MAT_X[plan].some(([a, b]) => bx >= a && bx <= b); const base = onMat ? 1.103 : 1.09;
   const g = new THREE.Group(); g.position.copy(b2t(bx, by, base));
   const plane = new THREE.Plane(new THREE.Vector3(0, -1, 0), 0);   // world-horizontal: whatever the glass does, the liquid stays level
-  const liquid = new THREE.MeshStandardMaterial({ color: 0xd4821a, transparent: true, opacity: 0.95, roughness: 0.2, emissive: 0x6a3a06, emissiveIntensity: 0.7, side: THREE.DoubleSide, clippingPlanes: [plane] });
+  const liquid = new THREE.MeshStandardMaterial({ color: 0xd4821a, transparent: true, opacity: 0.95, roughness: 0.2, emissive: 0x6a3a06, emissiveIntensity: 0.7, clippingPlanes: [plane] });   // front faces only: the level surface disc caps the cut
   const liquidTop = new THREE.MeshStandardMaterial({ color: 0xe0902a, roughness: 0.15, emissive: 0x6a3a06, emissiveIntensity: 0.6 });
   const wall = new THREE.Mesh(glassGeo, glassMat); wall.position.y = GLASS_H / 2; wall.renderOrder = 3;
   const bottom = new THREE.Mesh(baseGeo, glassMat); bottom.position.y = 0.003;
@@ -449,7 +449,8 @@ function updateBeer(b) {   // clip the liquid at a level plane and sit the surfa
   b.plane.constant = ys;
   const along = _up.y > 0.2 ? THREE.MathUtils.clamp((ys - _base.y) / _up.y, INNER_Y0, INNER_Y0 + INNER_H) : INNER_Y0; _P.copy(_base).addScaledVector(_up, along);
   b.surf.position.copy(g.worldToLocal(_P.clone())); b.surf.quaternion.copy(_q).invert();
-  const rr = (0.0285 + 0.006 * (along - INNER_Y0) / INNER_H - 0.0012) / 0.0335; b.surf.userData.disc.scale.set(rr, 1, rr);   // the surface disc matches the glass where the level is, so nothing pokes through
+  const rl = (0.0285 + 0.006 * (along - INNER_Y0) / INNER_H) / 0.0335, hl = Math.hypot(_up.x, _up.z), disc = b.surf.userData.disc;   // the cut through a tilted glass is an ellipse: stretch the surface along the tilt
+  disc.rotation.y = hl > 1e-4 ? Math.atan2(-_up.z, _up.x) : 0; disc.scale.set(rl / Math.max(0.4, _up.y), 1, rl);
   b.surf.userData.foam.visible = b.level > 0.98;   // the head goes with the first sip
   b.surf.visible = b.level > 0.02; b.beer.visible = b.level > 0.005;
 }
