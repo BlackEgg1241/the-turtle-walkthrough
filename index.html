@@ -573,8 +573,7 @@ function updateDash() {
 }
 $('#dash-fill').addEventListener('click', () => {
   if (fill.stage === 0) { fill.stage = 1; $('#dash-fill').hidden = true; dashMsg('Nozzle in, filling…'); const from = car.fuel;
-    animate(0, 1, 6000, k => { car.fuel = from + (1 - from) * k; fill.litres = Math.round((car.fuel - from) * 130); dashMsg('Filling… ' + fill.litres + ' L'); $('#dash-fuel').style.width = Math.round(car.fuel * 100) + '%'; }, () => { fill.stage = 2; $('#dash-fill').textContent = 'Hang up the nozzle'; $('#dash-fill').hidden = false; dashMsg('Full. ' + fill.litres + ' L in.'); }); }
-  else if (fill.stage === 2) { fill.stage = 0; $('#dash-fill').hidden = true; dashMsg('Tank full. Off you go.'); }
+    animate(0, 1, 6000, k => { car.fuel = from + (1 - from) * k; fill.litres = Math.round((car.fuel - from) * 130); dashMsg('Filling… ' + fill.litres + ' L'); $('#dash-fuel').style.width = Math.round(car.fuel * 100) + '%'; }, () => { fill.stage = 0; dashMsg('Tank full, ' + fill.litres + ' L in. Off you go.'); }); }
 });
 $('#dash-exit').addEventListener('click', exitCar);
 parkCollider(); updateDash();
