@@ -355,7 +355,13 @@ function updateReadout() {
 /* ---------- cameras and movement ---------- */
 const walk = { pos: b2t(P.W / 2 + 1.5, -12, P.eye), yaw: 0, pitch: 0 }, orbit = { target: b2t(4, 4, 1), theta: 0.5, phi: 0.9, dist: 26 }, plan = { cx: 3, cz: -2, halfW: 15 };
 const keys = {}, joy = { x: 0, y: 0 }; let photo = { name: null, yaw: 0, pitch: 0, sphere: null, hotspots: [] };
+function placeDash() {   // phones: centre the dash in the gap between the joystick and the mode buttons, whatever their widths
+  const d = $('#dash'); if (getComputedStyle(d).flexDirection !== 'column') { d.style.left = ''; return; }
+  const j = $('#touch-left').getBoundingClientRect(), m = $('#modes').getBoundingClientRect(); const left = j.width ? j.right : 0, right = m.width ? m.left : window.innerWidth;
+  d.style.left = ((left + right) / 2) + 'px';
+}
 function fitCamera() {
+  placeDash();
   const w = canvas.clientWidth || 1, h = canvas.clientHeight || 1; renderer.setSize(w, h, false); composer.setSize(w, h);
   persp.aspect = w / h; persp.updateProjectionMatrix(); photoCam.aspect = w / h; photoCam.updateProjectionMatrix();
   ortho.left = -plan.halfW; ortho.right = plan.halfW; ortho.top = plan.halfW * h / w; ortho.bottom = -plan.halfW * h / w; ortho.updateProjectionMatrix(); updateScaleBar();
@@ -365,7 +371,7 @@ function setMode(mode) {
   S.mode = mode; camera = mode === 'plan' ? ortho : mode === 'photo' ? photoCam : persp;
   renderer.setPixelRatio(Math.min(devicePixelRatio, mode === 'photo' ? 2 : (LITE ? 1.25 : 1.75)));   // photo mode is cheap to draw: give phones the sharper ratio there
   $$('#modes button').forEach(b => b.classList.toggle('on', b.dataset.mode === mode)); $('#scalebar').style.display = mode === 'plan' ? 'flex' : 'none';
-  $('#dash').style.display = mode === 'drive' ? 'flex' : 'none'; document.body.classList.toggle('driving', mode === 'drive'); if (mode !== 'drive' && car.driving) { car.driving = false; parkCollider(); }
+  $('#dash').style.display = mode === 'drive' ? 'flex' : 'none'; document.body.classList.toggle('driving', mode === 'drive'); if (mode === 'drive') placeDash(); if (mode !== 'drive' && car.driving) { car.driving = false; parkCollider(); }
   if (mode === 'photo' && (!photo.name || !activePanos().some(p => panoKey(p) === photo.name))) showPano(nearestPano()); $('#photo-tip').style.display = mode === 'photo' ? 'block' : 'none';
   applyVisibility(); fitCamera();
 }
