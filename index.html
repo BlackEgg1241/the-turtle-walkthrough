@@ -190,10 +190,10 @@ const ortho = new THREE.OrthographicCamera(-10, 10, 10, -10, 0.1, 200); ortho.up
 const photoScene = new THREE.Scene(); const photoCam = new THREE.PerspectiveCamera(75, 1, 0.1, 200); photoCam.rotation.order = 'YXZ';
 let camera = persp;
 const G = {}; ['dims', 'plan', 'measure', 'trees'].forEach(k => { G[k] = new THREE.Group(); scene.add(G[k]); });
-const sun = new THREE.DirectionalLight(0xfff3e0, 1.25); sun.position.set(0.58 * 70, 0.74 * 70, 0.33 * 70); sun.castShadow = !LITE;
+const sun = new THREE.DirectionalLight(0xfff3e0, LITE ? 0.9 : 1.25); sun.position.set(0.58 * 70, 0.74 * 70, 0.33 * 70); sun.castShadow = !LITE;
 sun.shadow.mapSize.set(4096, 4096); Object.assign(sun.shadow.camera, { left: -34, right: 34, top: 34, bottom: -34, near: 5, far: 160 }); sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.03;
 sun.shadow.radius = 3; scene.add(sun); scene.add(sun.target);
-scene.add(new THREE.HemisphereLight(LITE ? 0xf2e6d6 : 0xcfe0f5, LITE ? 0x4a3d30 : 0x2a231d, LITE ? 0.7 : 0.5));   // sky fill; warmer and stronger on phones, which lose most of the real-time spots
+scene.add(new THREE.HemisphereLight(LITE ? 0xf2e6d6 : 0xcfe0f5, LITE ? 0x4a3d30 : 0x2a231d, LITE ? 0.6 : 0.5)); if (LITE) scene.add(new THREE.AmbientLight(0xfff1e2, 0.8));   // phones: even fill so interior walls read white whichever way they face   // sky fill; warmer and stronger on phones, which lose most of the real-time spots
 const composer = new THREE.EffectComposer(renderer); const renderPass = new THREE.RenderPass(scene, persp); composer.addPass(renderPass);
 const bloom = new THREE.UnrealBloomPass(new THREE.Vector2(1, 1), 0.22, 0.5, 0.92); composer.addPass(bloom);
 
@@ -240,6 +240,7 @@ function prepareScene(gltf, model, forceColl) {
     const nm = o.name || '', mats = Array.isArray(o.material) ? o.material : [o.material]; const ttl = tag(o, 'ttl'), ttc = tag(o, 'ttc'); const onm = ttl || nm; o.userData.ttl = ttl; o.userData.ttc = ttc; o.userData.model = model; if (model === 'c6' && (ttl === 'Ground' || /^Ground/.test(nm))) hasC6Ground = true;
     mats.forEach(m => {
       if (!m) return; m.envMapIntensity = 0.6;
+      if (LITE && m.metalness > 0.5) { m.metalness = 0.35; m.roughness = Math.max(m.roughness || 0, 0.45); m.envMapIntensity = 0.25; m.needsUpdate = true; }   // phones: brushed, not a flickering mirror of the sky
       if (/^Glass/.test(m.name)) { m.transparent = true; m.opacity = 0.32; m.depthWrite = false; m.roughness = 0.04; m.metalness = 0.1; m.side = THREE.DoubleSide; m.transmission = 0; o.castShadow = false; }
       if (/^Cutout/.test(m.name)) { m.alphaTest = 0.5; m.transparent = false; m.depthWrite = true; m.depthTest = true; m.side = THREE.DoubleSide; m.roughness = 1; m.metalness = 0; m.needsUpdate = true; }
       if (m.name === 'Steel Monument') mon.push(m); if (m.name === 'Colorbond Deep Ocean') deep.push(m);
@@ -266,6 +267,7 @@ function prepareScene(gltf, model, forceColl) {
     let has = false;
     mats.forEach(m => {
       if (!m || !m.aoMap) return;
+      if (LITE && m.color && m.color.r > 0.8 && m.color.g > 0.75 && m.color.b > 0.68 && m.metalness < 0.2) { m.aoMap = null; m.needsUpdate = true; return; }   // phones: white paint is lit flat, so every wall piece reads the same white
       m.lightMap = m.aoMap; m.lightMapIntensity = DATA.lightmaps.scale * (LITE ? 0.95 : 0.85); m.aoMap = null; m.envMapIntensity = 0.15; m.needsUpdate = true; has = true;
     });
     if (has) { o.layers.set(1); o.receiveShadow = false; lmCount++; }
