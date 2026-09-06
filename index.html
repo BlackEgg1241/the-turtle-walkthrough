@@ -190,7 +190,7 @@ const panoKey = p => (p.concept || '12') + ':' + p.name, activePanos = () => DAT
 const canvas = $('#view');
 // LITE (phones, tablets, small laptops): no antialias, lower pixel ratio, no shadows, no bloom, few real-time lights, no drinks/glassware, log depth against z-fighting
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: !LITE, powerPreference: 'high-performance', logarithmicDepthBuffer: LITE });
-renderer.setPixelRatio(Math.min(devicePixelRatio, LITE ? 1.25 : 1.75)); renderer.outputEncoding = THREE.sRGBEncoding;
+renderer.setPixelRatio(Math.min(devicePixelRatio, LITE ? 1.25 : 1.75)); renderer.localClippingEnabled = true; renderer.outputEncoding = THREE.sRGBEncoding;
 renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 0.8;
 renderer.shadowMap.enabled = !LITE; renderer.shadowMap.type = THREE.PCFSoftShadowMap; renderer.physicallyCorrectLights = true;
 const scene = new THREE.Scene();
@@ -372,12 +372,13 @@ function setMode(mode) {
   S.mode = mode; camera = mode === 'plan' ? ortho : mode === 'photo' ? photoCam : persp;
   renderer.setPixelRatio(Math.min(devicePixelRatio, mode === 'photo' ? 2 : (LITE ? 1.25 : 1.75)));   // photo mode is cheap to draw: give phones the sharper ratio there
   $$('#modes button').forEach(b => b.classList.toggle('on', b.dataset.mode === mode)); $('#scalebar').style.display = mode === 'plan' ? 'flex' : 'none';
+  if (mode !== 'walk') abortDrinks();
   $('#dash').style.display = mode === 'drive' ? 'flex' : 'none'; document.body.classList.toggle('driving', mode === 'drive'); if (mode === 'drive') placeDash(); if (mode !== 'drive' && car.driving) { car.driving = false; parkCollider(); }
   if (mode === 'photo' && (!photo.name || !activePanos().some(p => panoKey(p) === photo.name))) showPano(nearestPano()); $('#photo-tip').style.display = mode === 'photo' ? 'block' : 'none';
   applyVisibility(); fitCamera();
 }
 function updateCamera() {
-  if (S.mode === 'walk') { persp.position.copy(walk.pos); persp.rotation.set(walk.pitch, walk.yaw, 0); }
+  if (S.mode === 'walk') { persp.position.copy(walk.pos); persp.rotation.set(walk.pitch + drinkPitch, walk.yaw, 0); }
   else if (S.mode === 'orbit') { const sp = Math.sin(orbit.phi); persp.position.set(orbit.target.x + orbit.dist * sp * Math.sin(orbit.theta), orbit.target.y + orbit.dist * Math.cos(orbit.phi), orbit.target.z + orbit.dist * sp * Math.cos(orbit.theta)); persp.lookAt(orbit.target); }
   else if (S.mode === 'plan') { ortho.position.set(plan.cx, 80, plan.cz); ortho.lookAt(plan.cx, 0, plan.cz); }
   else if (S.mode === 'drive') { const f = carForward(), want = new THREE.Vector3(car.x - f.x * 7.5, 3.1, car.z - f.z * 7.5); driveCam.lerp(want, 1 - Math.exp(-6 * driveDt)); persp.position.copy(driveCam); persp.lookAt(car.x, 1.1, car.z); }
@@ -417,33 +418,79 @@ function photoClick(e) {
 }
 
 /* ---------- beers on the rubber mats, and a bartender who will pour you one ---------- */
-const beers = [], bartenders = []; let anims = [];
+const beers = [], bartenders = []; let anims = []; let drinkPitch = 0;
 const BEER_MATS = { '12': [[7.435, 7.98]], '6': [[7.865, 3.48]] };   // Blender x,y of the house beer on the far mat, per plan; the mat in front of the bartenders stays clear for ordered beers
 const MAT_X = { '12': [[4.485, 5.385], [6.685, 7.585]], '6': [[4.915, 5.815], [7.115, 8.015]] };
 const BAR_FRONT_Y = { '12': 7.83, '6': 3.33 };
+const GLASS_H = 0.15, R_TOP = 0.038, INNER_Y0 = 0.006, INNER_H = 0.138;   // a pint: 150 mm tall, 76 mm across the rim
 const glassMat = new THREE.MeshPhysicalMaterial({ color: 0xffffff, transparent: true, opacity: 0.28, roughness: 0.05, metalness: 0, depthWrite: false, side: THREE.DoubleSide });
-const beerMat = new THREE.MeshStandardMaterial({ color: 0xd4821a, transparent: true, opacity: 0.95, roughness: 0.2, emissive: 0x6a3a06, emissiveIntensity: 0.7 });
 const foamMat = new THREE.MeshStandardMaterial({ color: 0xfff6e0, roughness: 0.95 });
-const glassGeo = new THREE.CylinderGeometry(0.038, 0.031, 0.15, 24, 1, true), baseGeo = new THREE.CylinderGeometry(0.031, 0.031, 0.006, 24), beerGeo = new THREE.CylinderGeometry(0.0345, 0.0285, 1, 24), foamGeo = new THREE.CylinderGeometry(0.035, 0.035, 0.012, 24);
+const glassGeo = new THREE.CylinderGeometry(R_TOP, 0.031, GLASS_H, 24, 1, true), baseGeo = new THREE.CylinderGeometry(0.031, 0.031, 0.006, 24);
+const beerGeo = new THREE.CylinderGeometry(0.0345, 0.0285, INNER_H, 24), surfGeo = new THREE.CylinderGeometry(0.0335, 0.0335, 0.004, 24), foamGeo = new THREE.CylinderGeometry(0.0335, 0.0335, 0.012, 24);
 function makeBeer(bx, by, plan, kind) {   // bx, by in Blender metres; stands on the mat ribs or on the bar top
   const onMat = MAT_X[plan].some(([a, b]) => bx >= a && bx <= b); const base = onMat ? 1.103 : 1.09;
   const g = new THREE.Group(); g.position.copy(b2t(bx, by, base));
-  const wall = new THREE.Mesh(glassGeo, glassMat); wall.position.y = 0.075; wall.renderOrder = 3;
+  const plane = new THREE.Plane(new THREE.Vector3(0, -1, 0), 0);   // world-horizontal: whatever the glass does, the liquid stays level
+  const liquid = new THREE.MeshStandardMaterial({ color: 0xd4821a, transparent: true, opacity: 0.95, roughness: 0.2, emissive: 0x6a3a06, emissiveIntensity: 0.7, side: THREE.DoubleSide, clippingPlanes: [plane] });
+  const liquidTop = new THREE.MeshStandardMaterial({ color: 0xe0902a, roughness: 0.15, emissive: 0x6a3a06, emissiveIntensity: 0.6 });
+  const wall = new THREE.Mesh(glassGeo, glassMat); wall.position.y = GLASS_H / 2; wall.renderOrder = 3;
   const bottom = new THREE.Mesh(baseGeo, glassMat); bottom.position.y = 0.003;
-  const beer = new THREE.Mesh(beerGeo, beerMat); beer.renderOrder = 2; const foam = new THREE.Mesh(foamGeo, foamMat);
-  g.add(bottom, beer, foam, wall); scene.add(g);
-  const b = { group: g, beer, foam, level: 1, plan, kind, busy: false, hit: [wall, beer, foam, bottom] }; b.hit.forEach(m => m.userData.beer = b); setLevel(b, 1); beers.push(b); return b;
+  const beer = new THREE.Mesh(beerGeo, liquid); beer.position.y = INNER_Y0 + INNER_H / 2; beer.renderOrder = 2;
+  const surf = new THREE.Group(); const disc = new THREE.Mesh(surfGeo, liquidTop); const foam = new THREE.Mesh(foamGeo, foamMat); foam.position.y = 0.008; surf.add(disc, foam);
+  g.add(bottom, beer, surf, wall); scene.add(g);
+  const b = { group: g, beer, surf, plane, level: 1, plan, kind, busy: false, rest: { p: g.position.clone(), q: g.quaternion.clone() }, hit: [wall, beer, bottom, disc, foam] };
+  b.hit.forEach(m => m.userData.beer = b); updateBeer(b); beers.push(b); return b;
 }
-function setLevel(b, L) { b.level = L; const h = 0.13 * Math.max(L, 0.001); b.beer.scale.y = h; b.beer.position.y = 0.006 + h / 2; b.foam.position.y = 0.006 + h + 0.006; b.foam.visible = L > 0.03; b.beer.visible = L > 0.005; }
+const _q = new THREE.Quaternion(), _up = new THREE.Vector3(), _base = new THREE.Vector3(), _P = new THREE.Vector3();
+function updateBeer(b) {   // clip the liquid at a level plane and sit the surface and head on it, however the glass is tilted
+  const g = b.group; g.updateMatrixWorld(true); _base.setFromMatrixPosition(g.matrixWorld); g.getWorldQuaternion(_q); _up.set(0, 1, 0).applyQuaternion(_q);
+  const rimLow = _base.y + _up.y * (INNER_Y0 + INNER_H) - R_TOP * Math.sqrt(Math.max(0, 1 - _up.y * _up.y));   // lowest point of the rim: the lip you drink over
+  const floor = _base.y + _up.y * INNER_Y0, ys = floor + b.level * Math.max(0, rimLow - floor) - 0.002;
+  b.plane.constant = ys;
+  const along = _up.y > 0.2 ? THREE.MathUtils.clamp((ys - _base.y) / _up.y, INNER_Y0, INNER_Y0 + INNER_H) : INNER_Y0; _P.copy(_base).addScaledVector(_up, along);
+  b.surf.position.copy(g.worldToLocal(_P.clone())); b.surf.quaternion.copy(_q).invert();
+  b.surf.visible = b.level > 0.02; b.beer.visible = b.level > 0.005;
+}
+function setLevel(b, L) { b.level = L; updateBeer(b); }
 function animate(from, to, dur, step, done) { anims.push({ t0: performance.now(), from, to, dur, step, done }); }
-function runAnims(now) { if (!anims.length) return; anims = anims.filter(a => { const k = Math.min(1, (now - a.t0) / a.dur); a.step(a.from + (a.to - a.from) * k); if (k >= 1) { if (a.done) a.done(); return false; } return true; }); }
-function drink(b) {
-  if (b.busy) return; b.busy = true;
-  animate(b.level, 0, 2600, L => setLevel(b, L), () => {
-    if (b.kind === 'mat') setTimeout(() => animate(0, 1, 900, L => setLevel(b, L), () => { b.busy = false; }), 3500);   // the house tops the mat beers up again
-    else { scene.remove(b.group); beers.splice(beers.indexOf(b), 1); }                                                    // a served beer is gone until you order another
+function runAnims(now) {
+  if (!anims.length) return;
+  anims = anims.filter(a => {
+    if (a.custom) return !a.step(now);
+    const k = Math.min(1, (now - a.t0) / a.dur); a.step(a.from + (a.to - a.from) * k); if (k >= 1) { if (a.done) a.done(); return false; } return true;
   });
 }
+const ease = k => k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2, smooth = k => k * k * (3 - 2 * k);
+function mouthPose(theta) {   // where the glass sits when it is at your lips, tilted back by theta, wherever you are looking
+  const q = persp.quaternion, f = new THREE.Vector3(0, 0, -1).applyQuaternion(q), r = new THREE.Vector3(1, 0, 0).applyQuaternion(q), u = new THREE.Vector3(0, 1, 0).applyQuaternion(q);
+  const lip = persp.position.clone().addScaledVector(f, 0.29).addScaledVector(u, -0.11).addScaledVector(r, 0.03);
+  const qt = new THREE.Quaternion().setFromAxisAngle(r, theta); const U = new THREE.Vector3(0, 1, 0).applyQuaternion(qt);
+  return { p: lip.addScaledVector(U, -(INNER_Y0 + INNER_H)).addScaledVector(f, -R_TOP * 0.6), q: qt };   // rim just past the lips, base hanging below
+}
+function drink(b) {   // pick it up, bring it to your mouth, tip it back as it empties, put it down
+  if (b.busy) return; b.busy = true;
+  const g = b.group, rest = b.rest, T = { reach: 0.45, lift: 0.9, drink: 3.4, lower: 0.9, settle: 0.25 }, t0 = performance.now();
+  const tEnd = { reach: T.reach, lift: T.reach + T.lift, drink: T.reach + T.lift + T.drink, lower: T.reach + T.lift + T.drink + T.lower, settle: T.reach + T.lift + T.drink + T.lower + T.settle };
+  const TH0 = 0.22, TH1 = 1.05;   // tilt at the first sip and at the last drop
+  anims.push({ custom: true, step: now => {
+    const t = (now - t0) / 1000;
+    if (t < tEnd.reach) { const k = ease(t / T.reach); g.position.copy(rest.p); g.position.y += 0.02 * k; drinkPitch = -0.14 * k; }
+    else if (t < tEnd.lift) { const k = ease((t - tEnd.reach) / T.lift), m = mouthPose(TH0 * k); g.position.lerpVectors(rest.p, m.p, k); g.position.y += 0.05 * Math.sin(Math.PI * k); g.quaternion.slerpQuaternions(rest.q, m.q, k); drinkPitch = -0.14 * (1 - k); }
+    else if (t < tEnd.drink) {
+      const k = (t - tEnd.lift) / T.drink; const kk = k < 0.42 ? 0.55 * smooth(k / 0.42) : k < 0.55 ? 0.55 : 0.55 + 0.45 * smooth((k - 0.55) / 0.45);   // two swallows with a breath between
+      const m = mouthPose(TH0 + (TH1 - TH0) * kk); g.position.copy(m.p); g.quaternion.copy(m.q); b.level = 1 - kk; drinkPitch = 0.12 * Math.sin(Math.PI * Math.min(1, k * 1.05));
+    }
+    else if (t < tEnd.lower) { const k = ease((t - tEnd.drink) / T.lower), m = mouthPose(TH0); g.position.lerpVectors(m.p, rest.p, k); g.position.y += 0.05 * Math.sin(Math.PI * k); g.quaternion.slerpQuaternions(m.q, rest.q, k); drinkPitch = -0.06 * Math.sin(Math.PI * k); b.level = 0; }
+    else if (t < tEnd.settle) { const k = (t - tEnd.lower) / T.settle; g.position.copy(rest.p); g.position.y += 0.004 * Math.sin(Math.PI * k); g.quaternion.copy(rest.q); drinkPitch = 0; }
+    else { g.position.copy(rest.p); g.quaternion.copy(rest.q); drinkPitch = 0; updateBeer(b); finishDrink(b); return true; }
+    updateBeer(b); return false;
+  } });
+}
+function finishDrink(b) {
+  if (b.kind === 'mat') setTimeout(() => animate(0, 1, 900, L => setLevel(b, L), () => { b.busy = false; }), 3500);   // the house tops the mat beer up again
+  else setTimeout(() => { scene.remove(b.group); const i = beers.indexOf(b); if (i >= 0) beers.splice(i, 1); }, 1200);   // a served beer is cleared away until you order another
+}
+function abortDrinks() { anims = anims.filter(a => !a.custom); drinkPitch = 0; beers.forEach(b => { if (b.busy) { b.group.position.copy(b.rest.p); b.group.quaternion.copy(b.rest.q); b.level = 0; updateBeer(b); finishDrink(b); } }); }
 function beersVisible() { beers.forEach(b => { b.group.visible = S.stage === 'proposed' && S.concept === b.plan; }); }
 Object.entries(BEER_MATS).forEach(([plan, spots]) => spots.forEach(([x, y]) => makeBeer(x, y, plan, 'mat')));
 const bubble = $('#bubble');
@@ -465,7 +512,7 @@ function tapScene(e) {
   const r = canvas.getBoundingClientRect(); const nd = new THREE.Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
   ray.setFromCamera(nd, persp);
   const bh = ray.intersectObjects(beers.filter(b => b.group.visible).flatMap(b => b.hit), false)[0];
-  if (bh) { const b = bh.object.userData.beer; if (!b.busy && b.level > 0.5) showBubble(e.clientX, e.clientY, '', [['Drink the beer', () => drink(b)], ['Leave it', null]]); return; }
+  if (bh) { const b = bh.object.userData.beer; if (b.busy || b.level < 0.5) return; if (S.mode !== 'walk') showBubble(e.clientX, e.clientY, 'Switch to Walk to pick it up.', [['OK', null]]); else showBubble(e.clientX, e.clientY, '', [['Drink the beer', () => drink(b)], ['Leave it', null]]); return; }
   const ch = ray.intersectObjects(car.group.children, true)[0];
   if (ch && ch.distance < 12) { showBubble(e.clientX, e.clientY, 'Take the Land Cruiser for a drive?', [['Get in', () => startDrive()], ['Leave it', null]]); return; }
   const th = ray.intersectObjects(bartenders.filter(t => t.mesh.visible).map(t => t.mesh), false)[0];
@@ -725,7 +772,7 @@ window.addEventListener('error', e => { const l = $('#loading'); if (l && l.styl
   setMode('walk'); VIEWS[0][1](); fitCamera();
   if (/plan6/.test(location.hash)) await ensureConcept6(); else setTimeout(ensureConcept6, 1500);   // the 6.7 m plan loads in the background once the page is up
   if (/carview/.test(location.hash)) await new Promise(res => { loadCarModel(); setTimeout(res, 4000); }); else setTimeout(loadCarModel, 800);
-  if (location.hash) { if (/plan6/.test(location.hash)) setConcept('6'); if (/plan12/.test(location.hash)) setConcept('12'); if (/carview/.test(location.hash)) { setMode('walk'); walk.pos.set(car.x - 5.5, 1.6, car.z + 6.5); const d = new THREE.Vector3(car.x - walk.pos.x, 0, car.z - walk.pos.z); walk.yaw = Math.atan2(-d.x, -d.z); walk.pitch = -0.08; } if (/today/.test(location.hash)) setStage('today'); const m = location.hash.match(/view=(\d)/); if (m) VIEWS[+m[1] - 1][1](); if (/photo/.test(location.hash)) { setMode('photo'); showPano(nearestPano()); } if (/nointro/.test(location.hash)) dismiss(); if (/nopeople/.test(location.hash)) { S.people = false; $('#ck-people').checked = false; applyVisibility(); } if (/noroof/.test(location.hash)) { S.roof = false; $('#ck-roof').checked = false; applyVisibility(); } }
+  if (location.hash) { if (/plan6/.test(location.hash)) setConcept('6'); if (/plan12/.test(location.hash)) setConcept('12'); if (/drinkpose/.test(location.hash)) setTimeout(() => { const b = beers.find(b => b.group.visible); if (b) { updateCamera(); const m = mouthPose(0.75); b.group.position.copy(m.p); b.group.quaternion.copy(m.q); b.level = 0.45; updateBeer(b); } }, 500); if (/carview/.test(location.hash)) { setMode('walk'); walk.pos.set(car.x - 5.5, 1.6, car.z + 6.5); const d = new THREE.Vector3(car.x - walk.pos.x, 0, car.z - walk.pos.z); walk.yaw = Math.atan2(-d.x, -d.z); walk.pitch = -0.08; } if (/today/.test(location.hash)) setStage('today'); const m = location.hash.match(/view=(\d)/); if (m) VIEWS[+m[1] - 1][1](); if (/photo/.test(location.hash)) { setMode('photo'); showPano(nearestPano()); } if (/nointro/.test(location.hash)) dismiss(); if (/nopeople/.test(location.hash)) { S.people = false; $('#ck-people').checked = false; applyVisibility(); } if (/noroof/.test(location.hash)) { S.roof = false; $('#ck-roof').checked = false; applyVisibility(); } }
 })();
 window.addEventListener('resize', fitCamera);
 let last = performance.now();
