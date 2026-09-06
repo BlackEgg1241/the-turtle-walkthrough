@@ -520,7 +520,7 @@ function zone(owner, d, enter, leave, armed, setArmed, x, y, z, text, choices) {
 }
 function carCheck() {   // an easter egg: get right up to the Land Cruiser and it offers you the keys
   if (S.mode !== 'walk' || car.driving) return;
-  zone('car', Math.hypot(car.x - walk.pos.x, car.z - walk.pos.z), 2.6, 3.8, carOffered, v => carOffered = v, car.x, 1.6, car.z, 'Keys are in it. Take the Cruiser for a drive?', [['Get in', () => startDrive()], ['Leave it', null]]);
+  zone('car', Math.hypot(car.x - walk.pos.x, car.z - walk.pos.z), 2.6, 3.8, carOffered, v => carOffered = v, car.x, 1.6, car.z, car.fuel < 0.5 ? 'Keys are in the Cruiser, but she is nearly out of fuel. Take her over to the bowsers for a fill first?' : 'Keys are in it. Take the Cruiser for a drive?', [['Get in', () => startDrive()], ['Leave it', null]]);
 }
 function greetCheck() {   // reach the stools in front of the two men and they greet you; the offer stays while you are there
   if (S.mode !== 'walk' || beers.some(b => b.busy)) return;
@@ -535,7 +535,7 @@ function tapScene(e) {
   const bh = ray.intersectObjects(beers.filter(b => b.group.visible).flatMap(b => b.hit), false)[0];
   if (bh) { const b = bh.object.userData.beer; if (b.busy || b.level < 0.5) return; if (S.mode !== 'walk') showBubble(e.clientX, e.clientY, 'Switch to Walk to pick it up.', [['OK', null]]); else showBubble(e.clientX, e.clientY, '', [['Drink the beer', () => drink(b)], ['Leave it', null]]); return; }
   const ch = ray.intersectObjects(car.group.children, true)[0];
-  if (ch && ch.distance < 12) { showBubble(e.clientX, e.clientY, 'Take the Land Cruiser for a drive?', [['Get in', () => startDrive()], ['Leave it', null]]); return; }
+  if (ch && ch.distance < 12) { showBubble(e.clientX, e.clientY, car.fuel < 0.5 ? 'The Cruiser is nearly out of fuel. Take her over to the bowsers for a fill?' : 'Take the Land Cruiser for a drive?', [['Get in', () => startDrive()], ['Leave it', null]]); return; }
   const th = ray.intersectObjects(bartenders.filter(t => t.mesh.visible).map(t => t.mesh), false)[0];
   if (th && th.distance < 7) showBubble(e.clientX, e.clientY, "G'day, welcome to The Turtle, what can I get you?", [['A beer, thanks', () => orderBeer(th.object.userData.bartender)], ['Just looking', null]]);
 }
@@ -621,7 +621,7 @@ function dashMsg(m) { $('#dash-msg').textContent = m; }
 function startDrive() {
   hideBubble(); colliders.splice(colliders.indexOf(carCollider), 1); car.driving = true; car.speed = 0; if (gyro.on) setGyro(false);
   const f = carForward(); driveCam.set(car.x - f.x * 7.5, 3.1, car.z - f.z * 7.5); setMode('drive');
-  dashMsg(navigator.maxTouchPoints > 1 ? 'Joystick: up to drive, sideways to steer.' : 'W / S drive, A / D steer.'); updateDash();
+  dashMsg((car.fuel < 0.5 ? 'Nearly empty: head for the bowsers under the canopy. ' : '') + (navigator.maxTouchPoints > 1 ? 'Joystick: up to drive, sideways to steer.' : 'W / S drive, A / D steer.')); updateDash();
 }
 function exitCar() {
   const r = carRight(); car.speed = 0; walk.pos.set(car.x + r.x * 1.9, P.eye, car.z + r.z * 1.9); walk.yaw = Math.atan2(r.x, r.z); walk.pitch = -0.05;   // out the driver's door, looking back at the car
