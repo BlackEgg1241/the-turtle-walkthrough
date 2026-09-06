@@ -497,41 +497,36 @@ function abortDrinks() { anims = anims.filter(a => !a.custom); drinkPitch = 0; b
 function beersVisible() { beers.forEach(b => { b.group.visible = S.stage === 'proposed' && S.concept === b.plan; }); }
 Object.entries(BEER_MATS).forEach(([plan, spots]) => spots.forEach(([x, y]) => makeBeer(x, y, plan, 'mat')));
 const bubble = $('#bubble');
-function showBubble(cx, cy, text, choices) {   // choices: [label, action or null (just close)]
+function showBubble(cx, cy, text, choices, owner) {   // choices: [label, action or null]; owner: a zone that keeps it up until you leave
   bubble.innerHTML = (text ? `<p>${text}</p>` : '') + choices.map((c, i) => `<button data-i="${i}"${c[1] ? '' : ' class="quiet"'}>${c[0]}</button>`).join('');
-  bubble.style.display = 'block'; const r = canvas.getBoundingClientRect(); const w = bubble.offsetWidth, h = bubble.offsetHeight;
-  bubble.style.left = Math.min(Math.max(cx, w / 2 + 8), r.width - w / 2 - 8) + 'px'; bubble.style.top = Math.max(cy - 22, h + 14) + 'px';
-  bubble.querySelectorAll('button').forEach(btn => btn.addEventListener('click', e => { e.stopPropagation(); hideBubble(); const c = choices[+btn.dataset.i]; if (c[1]) c[1](); }));
-  clearTimeout(bubble._t); bubble._t = setTimeout(hideBubble, 9000);
+  bubble.dataset.owner = owner || ''; bubble.style.display = 'block'; placeBubble(cx, cy);
+  bubble.querySelectorAll('button').forEach(btn => btn.addEventListener('click', e => { e.stopPropagation(); hideBubble(true); const c = choices[+btn.dataset.i]; if (c[1]) c[1](); }));
+  clearTimeout(bubble._t); if (!owner) bubble._t = setTimeout(() => hideBubble(true), 9000);
 }
-function hideBubble() { bubble.style.display = 'none'; }
+function placeBubble(cx, cy) { const r = canvas.getBoundingClientRect(); const w = bubble.offsetWidth, h = bubble.offsetHeight; bubble.style.left = Math.min(Math.max(cx, w / 2 + 8), r.width - w / 2 - 8) + 'px'; bubble.style.top = Math.max(cy - 22, h + 14) + 'px'; }
+function hideBubble(force) { if (bubble.dataset.owner && !force) return; bubble.style.display = 'none'; bubble.dataset.owner = ''; }
+function screenPoint(x, y, z) { const v = new THREE.Vector3(x, y, z).project(persp); const r = canvas.getBoundingClientRect(); return v.z < 1 ? [THREE.MathUtils.clamp((v.x * 0.5 + 0.5) * r.width, 120, r.width - 120), THREE.MathUtils.clamp((-v.y * 0.5 + 0.5) * r.height, 120, r.height - 40)] : [r.width / 2, r.height * 0.4]; }
 bubble.addEventListener('pointerdown', e => e.stopPropagation());
 function orderBeer(bt) {
   const bb = new THREE.Box3().setFromObject(bt.mesh); const plan = bt.model === 'c6' ? '6' : '12';
   makeBeer((bb.min.x + bb.max.x) / 2 - 0.05, BAR_FRONT_Y[plan] + 0.1, plan, 'served'); beersVisible();
 }
 let greeted = false, carOffered = false;
-function carCheck() {   // an easter egg: get right up to the Land Cruiser and it offers you the keys; walk off and it re-arms
-  if (S.mode !== 'walk' || car.driving) return;
-  const d = Math.hypot(car.x - walk.pos.x, car.z - walk.pos.z);
-  if (d > 4.0) { carOffered = false; return; }
-  if (d < 2.6 && !carOffered && bubble.style.display !== 'block') {
-    carOffered = true; const v = new THREE.Vector3(car.x, 1.6, car.z).project(persp); const r = canvas.getBoundingClientRect();
-    const cx = v.z < 1 ? (v.x * 0.5 + 0.5) * r.width : r.width / 2, cy = v.z < 1 ? (-v.y * 0.5 + 0.5) * r.height : r.height * 0.4;
-    showBubble(THREE.MathUtils.clamp(cx, 120, r.width - 120), THREE.MathUtils.clamp(cy, 120, r.height - 40), 'Keys are in it. Take the Cruiser for a drive?', [['Get in', () => startDrive()], ['Leave it', null]]);
-  }
+function zone(owner, d, enter, leave, armed, setArmed, x, y, z, text, choices) {   // step into the zone: the bubble comes up and stays; step out: it goes and re-arms
+  const mine = bubble.dataset.owner === owner && bubble.style.display === 'block';
+  if (d > leave) { if (mine) hideBubble(true); setArmed(false); return; }
+  if (mine) { const [cx, cy] = screenPoint(x, y, z); placeBubble(cx, cy); return; }
+  if (d < enter && !armed && !bubble.dataset.owner && bubble.style.display !== 'block') { setArmed(true); const [cx, cy] = screenPoint(x, y, z); showBubble(cx, cy, text, choices, owner); }
 }
-function greetCheck() {   // walk up to the bartenders and they greet you; walk away and they will again next time
-  if (S.mode !== 'walk') return;
+function carCheck() {   // an easter egg: get right up to the Land Cruiser and it offers you the keys
+  if (S.mode !== 'walk' || car.driving) return;
+  zone('car', Math.hypot(car.x - walk.pos.x, car.z - walk.pos.z), 2.6, 3.8, carOffered, v => carOffered = v, car.x, 1.6, car.z, 'Keys are in it. Take the Cruiser for a drive?', [['Get in', () => startDrive()], ['Leave it', null]]);
+}
+function greetCheck() {   // reach the stools in front of the two men and they greet you; the offer stays while you are there
+  if (S.mode !== 'walk' || beers.some(b => b.busy)) return;
   const bt = bartenders.find(x => x.mesh.visible); if (!bt) return;
   if (!bt.center) { const bb = new THREE.Box3().setFromObject(bt.mesh); bt.center = bb.getCenter(new THREE.Vector3()); bt.top = bb.max.y; }
-  const d = Math.hypot(bt.center.x - walk.pos.x, bt.center.z - walk.pos.z);
-  if (d > 6.5) { greeted = false; return; }
-  if (d < 4.2 && !greeted && bubble.style.display !== 'block' && !beers.some(b => b.busy)) {   // the bar and stools keep you about 2.5 m off them, so the greeting reaches across it
-    greeted = true; const v = bt.center.clone(); v.y = bt.top - 0.1; v.project(persp); const r = canvas.getBoundingClientRect();
-    const cx = v.z < 1 ? (v.x * 0.5 + 0.5) * r.width : r.width / 2, cy = v.z < 1 ? (-v.y * 0.5 + 0.5) * r.height : r.height * 0.4;
-    showBubble(THREE.MathUtils.clamp(cx, 120, r.width - 120), THREE.MathUtils.clamp(cy, 120, r.height - 40), "G'day, welcome to The Turtle, what can I get you?", [['A beer, thanks', () => orderBeer(bt)], ['Just looking', null]]);
-  }
+  zone('bartender', Math.hypot(bt.center.x - walk.pos.x, bt.center.z - walk.pos.z), 3.1, 3.7, greeted, v => greeted = v, bt.center.x, bt.top - 0.1, bt.center.z, "G'day, welcome to The Turtle, what can I get you?", [['A beer, thanks', () => orderBeer(bt)], ['Just looking', null]]);
 }
 function tapScene(e) {
   if (S.mode !== 'walk' && S.mode !== 'orbit') return;
