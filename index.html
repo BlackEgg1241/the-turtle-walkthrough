@@ -436,7 +436,7 @@ function makeBeer(bx, by, plan, kind) {   // bx, by in Blender metres; stands on
   const wall = new THREE.Mesh(glassGeo, glassMat); wall.position.y = GLASS_H / 2; wall.renderOrder = 3;
   const bottom = new THREE.Mesh(baseGeo, glassMat); bottom.position.y = 0.003;
   const beer = new THREE.Mesh(beerGeo, liquid); beer.position.y = INNER_Y0 + INNER_H / 2; beer.renderOrder = 2;
-  const surf = new THREE.Group(); const disc = new THREE.Mesh(surfGeo, liquidTop); const foam = new THREE.Mesh(foamGeo, foamMat); foam.position.y = 0.008; surf.add(disc, foam);
+  const surf = new THREE.Group(); const disc = new THREE.Mesh(surfGeo, liquidTop); const foam = new THREE.Mesh(foamGeo, foamMat); foam.position.y = 0.008; surf.add(disc, foam); surf.userData.disc = disc; surf.userData.foam = foam;
   g.add(bottom, beer, surf, wall); scene.add(g);
   const b = { group: g, beer, surf, plane, level: 1, plan, kind, busy: false, rest: { p: g.position.clone(), q: g.quaternion.clone() }, hit: [wall, beer, bottom, disc, foam] };
   b.hit.forEach(m => m.userData.beer = b); updateBeer(b); beers.push(b); return b;
@@ -449,6 +449,8 @@ function updateBeer(b) {   // clip the liquid at a level plane and sit the surfa
   b.plane.constant = ys;
   const along = _up.y > 0.2 ? THREE.MathUtils.clamp((ys - _base.y) / _up.y, INNER_Y0, INNER_Y0 + INNER_H) : INNER_Y0; _P.copy(_base).addScaledVector(_up, along);
   b.surf.position.copy(g.worldToLocal(_P.clone())); b.surf.quaternion.copy(_q).invert();
+  const rr = (0.0285 + 0.006 * (along - INNER_Y0) / INNER_H - 0.0012) / 0.0335; b.surf.userData.disc.scale.set(rr, 1, rr);   // the surface disc matches the glass where the level is, so nothing pokes through
+  b.surf.userData.foam.visible = b.level > 0.98;   // the head goes with the first sip
   b.surf.visible = b.level > 0.02; b.beer.visible = b.level > 0.005;
 }
 function setLevel(b, L) { b.level = L; updateBeer(b); }
