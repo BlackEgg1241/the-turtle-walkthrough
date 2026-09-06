@@ -251,6 +251,7 @@ function prepareScene(gltf, model, forceColl) {
     const nm = o.name || '', mats = Array.isArray(o.material) ? o.material : [o.material]; const ttl = tag(o, 'ttl'), ttc = tag(o, 'ttc'); const onm = ttl || nm; o.userData.ttl = ttl; o.userData.ttc = ttc; o.userData.model = model; if (model === 'c6' && (ttl === 'Ground' || /^Ground/.test(nm))) hasC6Ground = true;
     mats.forEach(m => {
       if (!m) return; m.envMapIntensity = 0.6;
+      if (m.side === THREE.DoubleSide && !(m.alphaTest > 0) && !/^(Cutout|Glass)/.test(m.name || '') && !/leaf|leaves|foliage/i.test(m.name || '')) m.side = THREE.FrontSide;   // the exporter marks everything double-sided: solids do not need it, and a hidden back face on top of another face flickers
       if (LITE && m.metalness > 0.5) { m.metalness = 0.35; m.roughness = Math.max(m.roughness || 0, 0.45); m.envMapIntensity = 0.25; m.needsUpdate = true; }   // phones: brushed, not a flickering mirror of the sky
       if (/^Glass/.test(m.name)) { m.transparent = true; m.opacity = 0.32; m.depthWrite = false; m.roughness = 0.04; m.metalness = 0.1; m.side = THREE.DoubleSide; m.transmission = 0; o.castShadow = false; }
       if (/^Cutout/.test(m.name)) { m.alphaTest = 0.5; m.transparent = false; m.depthWrite = true; m.depthTest = true; m.side = THREE.DoubleSide; m.roughness = 1; m.metalness = 0; m.needsUpdate = true; }
