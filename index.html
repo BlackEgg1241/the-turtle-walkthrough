@@ -526,8 +526,8 @@ function greetCheck() {   // walk up to the bartenders and they greet you; walk 
   const bt = bartenders.find(x => x.mesh.visible); if (!bt) return;
   if (!bt.center) { const bb = new THREE.Box3().setFromObject(bt.mesh); bt.center = bb.getCenter(new THREE.Vector3()); bt.top = bb.max.y; }
   const d = Math.hypot(bt.center.x - walk.pos.x, bt.center.z - walk.pos.z);
-  if (d > 4.5) { greeted = false; return; }
-  if (d < 2.6 && !greeted && bubble.style.display !== 'block' && !beers.some(b => b.busy)) {
+  if (d > 6.5) { greeted = false; return; }
+  if (d < 4.2 && !greeted && bubble.style.display !== 'block' && !beers.some(b => b.busy)) {   // the bar and stools keep you about 2.5 m off them, so the greeting reaches across it
     greeted = true; const v = bt.center.clone(); v.y = bt.top - 0.1; v.project(persp); const r = canvas.getBoundingClientRect();
     const cx = v.z < 1 ? (v.x * 0.5 + 0.5) * r.width : r.width / 2, cy = v.z < 1 ? (-v.y * 0.5 + 0.5) * r.height : r.height * 0.4;
     showBubble(THREE.MathUtils.clamp(cx, 120, r.width - 120), THREE.MathUtils.clamp(cy, 120, r.height - 40), "G'day, welcome to The Turtle, what can I get you?", [['A beer, thanks', () => orderBeer(bt)], ['Just looking', null]]);
