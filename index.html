@@ -398,7 +398,7 @@ function photoClick(e) {
 
 /* ---------- beers on the rubber mats, and a bartender who will pour you one ---------- */
 const beers = [], bartenders = []; let anims = [];
-const BEER_MATS = { '12': [[5.235, 7.98], [7.435, 7.98]], '6': [[5.665, 3.48], [7.865, 3.48]] };   // Blender x,y of a glass on each rubber mat, per plan (mats are centred 0.15 m in from the bar front)
+const BEER_MATS = { '12': [[7.435, 7.98]], '6': [[7.865, 3.48]] };   // Blender x,y of the house beer on the far mat, per plan; the mat in front of the bartenders stays clear for ordered beers
 const MAT_X = { '12': [[4.485, 5.385], [6.685, 7.585]], '6': [[4.915, 5.815], [7.115, 8.015]] };
 const BAR_FRONT_Y = { '12': 7.83, '6': 3.33 };
 const glassMat = new THREE.MeshPhysicalMaterial({ color: 0xffffff, transparent: true, opacity: 0.28, roughness: 0.05, metalness: 0, depthWrite: false, side: THREE.DoubleSide });
