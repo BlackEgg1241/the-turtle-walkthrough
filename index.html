@@ -96,6 +96,7 @@
     </section>
     <section><h3>Footprint</h3>
       <p class="note">Two plans to compare: the compact plan on the existing <b>12.07 × 6.7 m</b> roof (L-shaped bar, stools only, link moved along), shown first; and the <b>12.07 × 12.0 m</b> roof as sketched, walls on the column line. Today shows the carport as it is. Confirm the depth on site before anything is priced.</p>
+      <p class="note">Vehicle model: <a href="https://sketchfab.com/3d-models/toyota-land-cruiser-91b5815c64eb43b0a88f6fdb9df774e4" target="_blank" rel="noopener">Toyota Land Cruiser</a> by <a href="https://sketchfab.com/kryik1023" target="_blank" rel="noopener">Renafox</a>, licensed <a href="http://creativecommons.org/licenses/by-nc/4.0/" target="_blank" rel="noopener">CC BY-NC 4.0</a>.</p>
     </section>
     <section><h3>Readout</h3><dl class="readout" id="readout"></dl></section>
   </aside>
@@ -125,6 +126,7 @@
       </ul>
       <button id="start">Start walking</button>
       <p class="fine">Keys 1–9 jump to viewpoints · R lifts the roof · M measures between two floor points · Esc clears.</p>
+      <p class="fine">Vehicle: <a href="https://sketchfab.com/3d-models/toyota-land-cruiser-91b5815c64eb43b0a88f6fdb9df774e4" target="_blank" rel="noopener">Toyota Land Cruiser</a> by <a href="https://sketchfab.com/kryik1023" target="_blank" rel="noopener">Renafox</a>, <a href="http://creativecommons.org/licenses/by-nc/4.0/" target="_blank" rel="noopener">CC BY-NC 4.0</a>.</p>
     </div>
   </div>
 </div>
@@ -148,6 +150,7 @@
 <script id="data-concept6" type="application/json">"./assets/concept6.glb"</script>
 <script id="data-scene-lite" type="application/json">"./assets/scene_lite.glb"</script>
 <script id="data-concept6-lite" type="application/json">"./assets/concept6_lite.glb"</script>
+<script id="data-car" type="application/json">"./assets/vehicles/land_cruiser.glb"</script>
 <script>
 /* ========================================================================================
    The Turtle — walkthrough viewer. Loads the Blender-built scene (GLB), lights it with the
@@ -165,6 +168,7 @@ const DATA = {
   concept6: (t => t.startsWith('"') ? JSON.parse(t) : t)(($('#data-concept6') ? $('#data-concept6').textContent : '').trim()),   // hosted build: the compact plan (everything but the shared site)
   glbLite: (t => t.startsWith('"') ? JSON.parse(t) : t)(($('#data-scene-lite') ? $('#data-scene-lite').textContent : '').trim()),   // 768 px textures: phones, tablets, small laptops
   concept6Lite: (t => t.startsWith('"') ? JSON.parse(t) : t)(($('#data-concept6-lite') ? $('#data-concept6-lite').textContent : '').trim()),
+  carModel: (t => t.startsWith('"') ? JSON.parse(t) : t)(($('#data-car') ? $('#data-car').textContent : '').trim()),   // hosted build: the Sketchfab Land Cruiser (CC BY-NC), else the built-up one
 };
 const sanitize = n => n.replace(/\s/g, '_').replace(/[\[\]\.:\/]/g, '');   // three.js GLTFLoader renames nodes this way
 const isURL = s => typeof s === 'string' && (s.startsWith('./') || s.startsWith('assets/'));
@@ -577,6 +581,19 @@ $('#dash-fill').addEventListener('click', () => {
 });
 $('#dash-exit').addEventListener('click', exitCar);
 parkCollider(); updateDash();
+const CAR_MODEL_YAW = 0;   // extra turn if the downloaded model's nose is not on +z
+function loadCarModel() {   // swap the built-up car for the downloaded one once it arrives; the built-up one stays if it fails
+  if (!isURL(DATA.carModel)) return;
+  new THREE.GLTFLoader().load(DATA.carModel, gltf => {
+    const m = gltf.scene; m.updateMatrixWorld(true);
+    const bb = new THREE.Box3().setFromObject(m), size = bb.getSize(new THREE.Vector3()); const along = size.x > size.z ? 'x' : 'z'; const s = 4.95 / Math.max(size.x, size.z);
+    m.scale.setScalar(s); m.updateMatrixWorld(true); const bb2 = new THREE.Box3().setFromObject(m), c = bb2.getCenter(new THREE.Vector3());
+    const wrap = new THREE.Group(); m.position.set(-c.x, -bb2.min.y, -c.z); wrap.add(m); wrap.rotation.y = (along === 'x' ? Math.PI / 2 : 0) + CAR_MODEL_YAW;
+    m.traverse(o => { if (!o.isMesh) return; o.castShadow = !LITE; const mats = Array.isArray(o.material) ? o.material : [o.material];
+      mats.forEach(mt => { if (!mt) return; mt.envMapIntensity = LITE ? 0.3 : 0.6; if (/plane/i.test(o.name)) { mt.transparent = true; mt.depthWrite = false; o.position.y += 0.01; o.castShadow = false; } else if (mt.transparent) { mt.depthWrite = true; mt.alphaTest = 0.05; } mt.needsUpdate = true; }); });
+    car.group.children.slice().forEach(ch => car.group.remove(ch)); car.wheels = []; car.front = []; car.group.add(wrap); console.log('TTCAR model loaded');
+  }, undefined, () => console.log('TTCAR model failed, built-up car kept'));
+}
 
 /* ---------- pointer, wheel, keys, touch ---------- */
 let drag = null; const ray = new THREE.Raycaster(); const floorPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -0.1); let measurePts = [];
@@ -700,6 +717,7 @@ window.addEventListener('error', e => { const l = $('#loading'); if (l && l.styl
   } catch (e) { $('#loadmsg').textContent = 'Could not load the model: ' + e; console.error(e); }
   setMode('walk'); VIEWS[0][1](); fitCamera();
   if (/plan6/.test(location.hash)) await ensureConcept6(); else setTimeout(ensureConcept6, 1500);   // the 6.7 m plan loads in the background once the page is up
+  if (/carview/.test(location.hash)) await new Promise(res => { loadCarModel(); setTimeout(res, 4000); }); else setTimeout(loadCarModel, 800);
   if (location.hash) { if (/plan6/.test(location.hash)) setConcept('6'); if (/plan12/.test(location.hash)) setConcept('12'); if (/carview/.test(location.hash)) { setMode('walk'); walk.pos.set(car.x - 5.5, 1.6, car.z + 6.5); const d = new THREE.Vector3(car.x - walk.pos.x, 0, car.z - walk.pos.z); walk.yaw = Math.atan2(-d.x, -d.z); walk.pitch = -0.08; } if (/today/.test(location.hash)) setStage('today'); const m = location.hash.match(/view=(\d)/); if (m) VIEWS[+m[1] - 1][1](); if (/photo/.test(location.hash)) { setMode('photo'); showPano(nearestPano()); } if (/nointro/.test(location.hash)) dismiss(); if (/nopeople/.test(location.hash)) { S.people = false; $('#ck-people').checked = false; applyVisibility(); } if (/noroof/.test(location.hash)) { S.roof = false; $('#ck-roof').checked = false; applyVisibility(); } }
 })();
 window.addEventListener('resize', fitCamera);
