@@ -509,6 +509,19 @@ function orderBeer(bt) {
   const bb = new THREE.Box3().setFromObject(bt.mesh); const plan = bt.model === 'c6' ? '6' : '12';
   makeBeer((bb.min.x + bb.max.x) / 2 - 0.05, BAR_FRONT_Y[plan] + 0.1, plan, 'served'); beersVisible();
 }
+let greeted = false;
+function greetCheck() {   // walk up to the bartenders and they greet you; walk away and they will again next time
+  if (S.mode !== 'walk') return;
+  const bt = bartenders.find(x => x.mesh.visible); if (!bt) return;
+  if (!bt.center) { const bb = new THREE.Box3().setFromObject(bt.mesh); bt.center = bb.getCenter(new THREE.Vector3()); bt.top = bb.max.y; }
+  const d = Math.hypot(bt.center.x - walk.pos.x, bt.center.z - walk.pos.z);
+  if (d > 4.5) { greeted = false; return; }
+  if (d < 2.6 && !greeted && bubble.style.display !== 'block' && !beers.some(b => b.busy)) {
+    greeted = true; const v = bt.center.clone(); v.y = bt.top - 0.1; v.project(persp); const r = canvas.getBoundingClientRect();
+    const cx = v.z < 1 ? (v.x * 0.5 + 0.5) * r.width : r.width / 2, cy = v.z < 1 ? (-v.y * 0.5 + 0.5) * r.height : r.height * 0.4;
+    showBubble(THREE.MathUtils.clamp(cx, 120, r.width - 120), THREE.MathUtils.clamp(cy, 120, r.height - 40), "G'day, welcome to The Turtle, what can I get you?", [['A beer, thanks', () => orderBeer(bt)], ['Just looking', null]]);
+  }
+}
 function tapScene(e) {
   if (S.mode !== 'walk' && S.mode !== 'orbit') return;
   const r = canvas.getBoundingClientRect(); const nd = new THREE.Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
@@ -779,7 +792,7 @@ window.addEventListener('error', e => { const l = $('#loading'); if (l && l.styl
 window.addEventListener('resize', fitCamera);
 let last = performance.now();
 (function loop(now) {
-  const dt = Math.min(0.05, (now - last) / 1000); last = now; if (S.mode === 'walk') stepWalk(dt); else if (S.mode === 'drive') stepDrive(dt); updateCamera();
+  const dt = Math.min(0.05, (now - last) / 1000); last = now; if (S.mode === 'walk') { stepWalk(dt); greetCheck(); } else if (S.mode === 'drive') stepDrive(dt); updateCamera();
   runAnims(performance.now());
   if (S.mode === 'photo') renderer.render(photoScene, photoCam); else if (S.mode === 'plan') renderer.render(scene, ortho); else if (LITE) renderer.render(scene, persp); else { renderPass.camera = persp; composer.render(); }
   requestAnimationFrame(loop);
