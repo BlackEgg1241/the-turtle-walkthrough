@@ -509,7 +509,17 @@ function orderBeer(bt) {
   const bb = new THREE.Box3().setFromObject(bt.mesh); const plan = bt.model === 'c6' ? '6' : '12';
   makeBeer((bb.min.x + bb.max.x) / 2 - 0.05, BAR_FRONT_Y[plan] + 0.1, plan, 'served'); beersVisible();
 }
-let greeted = false;
+let greeted = false, carOffered = false;
+function carCheck() {   // an easter egg: get right up to the Land Cruiser and it offers you the keys; walk off and it re-arms
+  if (S.mode !== 'walk' || car.driving) return;
+  const d = Math.hypot(car.x - walk.pos.x, car.z - walk.pos.z);
+  if (d > 4.0) { carOffered = false; return; }
+  if (d < 2.6 && !carOffered && bubble.style.display !== 'block') {
+    carOffered = true; const v = new THREE.Vector3(car.x, 1.6, car.z).project(persp); const r = canvas.getBoundingClientRect();
+    const cx = v.z < 1 ? (v.x * 0.5 + 0.5) * r.width : r.width / 2, cy = v.z < 1 ? (-v.y * 0.5 + 0.5) * r.height : r.height * 0.4;
+    showBubble(THREE.MathUtils.clamp(cx, 120, r.width - 120), THREE.MathUtils.clamp(cy, 120, r.height - 40), 'Keys are in it. Take the Cruiser for a drive?', [['Get in', () => startDrive()], ['Leave it', null]]);
+  }
+}
 function greetCheck() {   // walk up to the bartenders and they greet you; walk away and they will again next time
   if (S.mode !== 'walk') return;
   const bt = bartenders.find(x => x.mesh.visible); if (!bt) return;
@@ -792,7 +802,7 @@ window.addEventListener('error', e => { const l = $('#loading'); if (l && l.styl
 window.addEventListener('resize', fitCamera);
 let last = performance.now();
 (function loop(now) {
-  const dt = Math.min(0.05, (now - last) / 1000); last = now; if (S.mode === 'walk') { stepWalk(dt); greetCheck(); } else if (S.mode === 'drive') stepDrive(dt); updateCamera();
+  const dt = Math.min(0.05, (now - last) / 1000); last = now; if (S.mode === 'walk') { stepWalk(dt); greetCheck(); carCheck(); } else if (S.mode === 'drive') stepDrive(dt); updateCamera();
   runAnims(performance.now());
   if (S.mode === 'photo') renderer.render(photoScene, photoCam); else if (S.mode === 'plan') renderer.render(scene, ortho); else if (LITE) renderer.render(scene, persp); else { renderPass.camera = persp; composer.render(); }
   requestAnimationFrame(loop);
