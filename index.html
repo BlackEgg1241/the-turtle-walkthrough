@@ -191,7 +191,7 @@ const panoKey = p => (p.concept || '12') + ':' + p.name, activePanos = () => DAT
 /* ---------- renderer ---------- */
 const canvas = $('#view');
 // LITE (phones, tablets, small laptops): no antialias, lower pixel ratio, no shadows, no bloom, few real-time lights, no drinks/glassware, log depth against z-fighting
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: !LITE, powerPreference: 'high-performance', logarithmicDepthBuffer: LITE });
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: !LITE, powerPreference: 'high-performance', logarithmicDepthBuffer: true });   // log depth on every device: coplanar-ish faces stop flickering
 renderer.setPixelRatio(Math.min(devicePixelRatio, LITE ? 1.25 : 1.75)); renderer.localClippingEnabled = true; renderer.outputEncoding = THREE.sRGBEncoding;
 renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 0.8;
 renderer.shadowMap.enabled = !LITE; renderer.shadowMap.type = THREE.PCFSoftShadowMap; renderer.physicallyCorrectLights = true;
@@ -255,6 +255,7 @@ function prepareScene(gltf, model, forceColl) {
       if (/^Glass/.test(m.name)) { m.transparent = true; m.opacity = 0.32; m.depthWrite = false; m.roughness = 0.04; m.metalness = 0.1; m.side = THREE.DoubleSide; m.transmission = 0; o.castShadow = false; }
       if (/^Cutout/.test(m.name)) { m.alphaTest = 0.5; m.transparent = false; m.depthWrite = true; m.depthTest = true; m.side = THREE.DoubleSide; m.roughness = 1; m.metalness = 0; m.needsUpdate = true; }
       if (m.name === 'Steel Monument') mon.push(m); if (m.name === 'Colorbond Deep Ocean') deep.push(m);
+      if (/^(Aluminium silver|Stainless|Grate|Bar mat print|Sign warm white|Brushed brass|Paint white trim|LM Aluminium)/.test(m.name || '')) { m.polygonOffset = true; m.polygonOffsetFactor = -1; m.polygonOffsetUnits = -2; m.needsUpdate = true; }   // frames, trays, plaques and prints sit on other surfaces: draw them a hair in front
       if (m.emissive && m.emissiveIntensity > 1) m.emissiveIntensity = Math.min(m.emissiveIntensity, 1.1);
     });
     if (ttl === 'Ground' || /^Ground/.test(nm)) { o.castShadow = false; }
@@ -691,8 +692,12 @@ function offerTeleport(cx, cy) {
 }
 tpBtn.addEventListener('click', e => { e.stopPropagation(); if (teleportTo) walk.pos.set(teleportTo.x, P.eye, teleportTo.z); hideTeleport(); canvas.focus(); });
 // a long press must be ours, not the phone's text-selection or writing-tools callout
-canvas.addEventListener('contextmenu', e => e.preventDefault()); canvas.addEventListener('touchstart', e => { if (e.cancelable) e.preventDefault(); }, { passive: false }); canvas.addEventListener('selectstart', e => e.preventDefault());
-canvas.addEventListener('pointerdown', e => { if (e.button !== 0 && e.pointerType === 'mouse') return; canvas.setPointerCapture(e.pointerId); drag = { x: e.clientX, y: e.clientY, moved: 0 }; canvas.focus(); hideTeleport(); hideBubble(); clearTimeout(pressTimer); const cx = e.clientX, cy = e.clientY; pressTimer = setTimeout(() => { if (drag && drag.moved < 10) offerTeleport(cx, cy); }, 550); });
+canvas.addEventListener('contextmenu', e => e.preventDefault()); canvas.addEventListener('selectstart', e => e.preventDefault());
+let touchPress = null;   // phones: the long press is timed from the touch events themselves, which the browser cannot cancel out from under us
+canvas.addEventListener('touchstart', e => { if (e.cancelable) e.preventDefault(); clearTimeout(pressTimer); if (e.touches.length === 1) { const t0 = e.touches[0], cx = t0.clientX, cy = t0.clientY; touchPress = { x: cx, y: cy }; pressTimer = setTimeout(() => { if (touchPress) offerTeleport(cx, cy); touchPress = null; }, 450); } else touchPress = null; }, { passive: false });
+canvas.addEventListener('touchmove', e => { if (touchPress && e.touches.length) { const t0 = e.touches[0]; if (Math.hypot(t0.clientX - touchPress.x, t0.clientY - touchPress.y) > 14) { clearTimeout(pressTimer); touchPress = null; } } }, { passive: true });
+canvas.addEventListener('touchend', () => { clearTimeout(pressTimer); touchPress = null; }); canvas.addEventListener('touchcancel', () => { clearTimeout(pressTimer); touchPress = null; });
+canvas.addEventListener('pointerdown', e => { if (e.button !== 0 && e.pointerType === 'mouse') return; canvas.setPointerCapture(e.pointerId); drag = { x: e.clientX, y: e.clientY, moved: 0 }; canvas.focus(); hideTeleport(); hideBubble(); if (e.pointerType === 'mouse') { clearTimeout(pressTimer); const cx = e.clientX, cy = e.clientY; pressTimer = setTimeout(() => { if (drag && drag.moved < 10) offerTeleport(cx, cy); }, 550); } });
 canvas.addEventListener('pointermove', e => {
   if (!drag) return; const dx = e.clientX - drag.x, dy = e.clientY - drag.y; drag.x = e.clientX; drag.y = e.clientY; drag.moved += Math.abs(dx) + Math.abs(dy);
   if (gyro.on && (S.mode === 'walk' || S.mode === 'photo')) { gyro.base += dx * 0.004; return; }
@@ -701,8 +706,8 @@ canvas.addEventListener('pointermove', e => {
   else if (S.mode === 'orbit') { orbit.theta -= dx * 0.006; orbit.phi = THREE.MathUtils.clamp(orbit.phi - dy * 0.006, 0.12, 1.52); }
   else { const u = 2 * plan.halfW / canvas.clientWidth; plan.cx -= dx * u; plan.cz -= dy * u; }
 });
-canvas.addEventListener('pointerup', e => { clearTimeout(pressTimer); if (drag && drag.moved < 6) { if (S.mode === 'photo') photoClick(e); else if (S.measure) measureClick(e); else tapScene(e); } drag = null; });
-canvas.addEventListener('pointercancel', () => { clearTimeout(pressTimer); drag = null; });
+canvas.addEventListener('pointerup', e => { if (e.pointerType === 'mouse') clearTimeout(pressTimer); if (drag && drag.moved < 6) { if (S.mode === 'photo') photoClick(e); else if (S.measure) measureClick(e); else tapScene(e); } drag = null; });
+canvas.addEventListener('pointercancel', e => { if (e.pointerType === 'mouse') clearTimeout(pressTimer); drag = null; });
 canvas.addEventListener('wheel', e => { e.preventDefault();
   if (S.mode === 'orbit') orbit.dist = THREE.MathUtils.clamp(orbit.dist * (1 + e.deltaY * 0.0012), 3, 90);
   else if (S.mode === 'plan') { plan.halfW = THREE.MathUtils.clamp(plan.halfW * (1 + e.deltaY * 0.0012), 3, 70); fitCamera(); }
