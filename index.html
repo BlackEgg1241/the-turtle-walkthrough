@@ -46,6 +46,7 @@
   #scalebar .bar{height:6px;width:120px;background:linear-gradient(90deg,var(--sand) 0 50%,var(--brass) 50% 100%);border-radius:2px;}
   #measure-tip,#photo-tip{position:absolute;left:50%;top:64px;transform:translateX(-50%);display:none;padding:8px 14px;font-size:13px;} #measure-tip b,#photo-tip b{color:var(--brass);}
   #touch-left{position:absolute;left:18px;bottom:18px;width:120px;height:120px;border-radius:50%;border:1px solid var(--sand-faint);background:rgba(20,21,22,.35);display:none;touch-action:none;}
+  #bubble{position:absolute;display:none;transform:translate(-50%,-100%);padding:12px 14px;border:1px solid var(--brass);background:var(--ink-2);color:var(--sand);font:500 13.5px var(--font-ui);border-radius:10px;box-shadow:0 6px 24px rgba(0,0,0,.5);max-width:270px;z-index:6;} #bubble p{margin:0 0 9px;line-height:1.35;} #bubble button{display:inline-block;margin:2px 6px 2px 0;padding:8px 12px;border:1px solid var(--brass);border-radius:6px;background:var(--brass);color:#141516;font:600 12.5px var(--font-ui);cursor:pointer;} #bubble button.quiet{background:transparent;color:var(--sand-dim);border-color:var(--sand-faint);}
   #teleport{position:absolute;display:none;transform:translate(-50%,-130%);padding:10px 16px;border:1px solid var(--brass);background:var(--brass);color:#141516;font:600 13px var(--font-ui);border-radius:8px;cursor:pointer;box-shadow:0 4px 18px rgba(0,0,0,.45);white-space:nowrap;z-index:5;}
   #gyro{position:absolute;left:18px;bottom:152px;display:none;padding:9px 12px;border:1px solid var(--sand-faint);background:var(--ink-2);color:var(--sand);font:500 12px var(--font-ui);border-radius:6px;cursor:pointer;} #gyro.on{background:var(--brass);color:#141516;border-color:var(--brass);}
   #touch-left .knob{position:absolute;left:40px;top:40px;width:40px;height:40px;border-radius:50%;background:var(--brass);opacity:.85;}
@@ -103,6 +104,7 @@
   <div id="touch-left"><div class="knob"></div></div>
   <button id="gyro" title="Look around by turning and tilting the phone">Toggle phone look</button>
   <button id="teleport">Teleport here</button>
+  <div id="bubble"></div>
   <div id="loading"><div class="mark">The Turtle</div><div class="bar"><i id="loadbar"></i></div><div class="msg" id="loadmsg">Loading the model…</div></div>
   <div id="intro" style="display:none">
     <div class="card glass">
@@ -244,10 +246,11 @@ function prepareScene(gltf, model, forceColl) {
       if (m.emissive && m.emissiveIntensity > 1) m.emissiveIntensity = Math.min(m.emissiveIntensity, 1.1);
     });
     if (ttl === 'Ground' || /^Ground/.test(nm)) { o.castShadow = false; }
-    const coll = forceColl || (ttc !== undefined ? ttc : (DATA.nodes[nm] || '')); (byColl[coll] = byColl[coll] || []).push(o); o.userData.coll = coll;
+    const coll = forceColl || (ttc !== undefined ? ttc : (DATA.nodes[nm] || ''));
+    if (coll === 'People' && /two.?men/i.test(nm)) { const bt = { mesh: o, model }; bartenders.push(bt); o.userData.bartender = bt; } (byColl[coll] = byColl[coll] || []).push(o); o.userData.coll = coll;
     const bb = new THREE.Box3().setFromObject(o); o.userData.bb = bb; o.userData.size = Math.max(bb.max.x - bb.min.x, bb.max.y - bb.min.y, bb.max.z - bb.min.z);
     if (bb.min.y > 2.15 && coll !== 'Site') roofMeshes.push(o);
-    const h = bb.max.y - bb.min.y, blocks = bb.min.y < 1.2 && bb.max.y > 0.45 && !/^(Door leaf|Ground|Front walkway|Walkway|Floor|Link floor|Verandah slab|Forecourt|Entry ramp|Slab edge|Breezeway floor)/.test(ttl || '') && (bb.max.x - bb.min.x) < 60;
+    const h = bb.max.y - bb.min.y, blocks = coll !== 'People' && bb.min.y < 1.2 && bb.max.y > 0.45 && !/^(Door leaf|Ground|Front walkway|Walkway|Floor|Link floor|Verandah slab|Forecourt|Entry ramp|Slab edge|Breezeway floor)/.test(ttl || '') && (bb.max.x - bb.min.x) < 60;
     if (blocks) colliders.push({ x0: bb.min.x, x1: bb.max.x, z0: bb.min.z, z1: bb.max.z, o });
   });
   if (model === 'main') { steelSwap.monument = mon[0] || null; steelSwap.deepOcean = deep[0] || null; }
@@ -329,7 +332,7 @@ function applyVisibility() {
   }
   scene.traverse(o => { if (o.isLight && o !== sun && !(o.isPointLight && o.intensity === 0)) { const m = o.userData.model; o.visible = !o.userData.culled && proposed && (m === 'c6' ? c6 : m === 'main' ? !c6 : true); } });
   if (steelSwap.monument && steelSwap.deepOcean) (byColl['Existing carport'] || []).forEach(o => { if ((o.userData.model || 'main') === 'main' && (o.material === steelSwap.monument || o.material === steelSwap.deepOcean)) o.material = proposed ? steelSwap.monument : steelSwap.deepOcean; });
-  G.dims.visible = S.dims; G.plan.visible = S.mode === 'plan';
+  G.dims.visible = S.dims; G.plan.visible = S.mode === 'plan'; beersVisible();
 }
 function activeColliders() { return colliders.filter(c => c.o.visible); }
 function updateReadout() {
@@ -393,6 +396,60 @@ function photoClick(e) {
   ray.setFromCamera(nd, photoCam); const hit = ray.intersectObjects(photo.hotspots)[0]; if (hit) showPano(hit.object.userData.pano);
 }
 
+/* ---------- beers on the rubber mats, and a bartender who will pour you one ---------- */
+const beers = [], bartenders = []; let anims = [];
+const BEER_MATS = { '12': [[5.235, 7.98], [7.435, 7.98]], '6': [[5.665, 3.48], [7.865, 3.48]] };   // Blender x,y of a glass on each rubber mat, per plan (mats are centred 0.15 m in from the bar front)
+const MAT_X = { '12': [[4.485, 5.385], [6.685, 7.585]], '6': [[4.915, 5.815], [7.115, 8.015]] };
+const BAR_FRONT_Y = { '12': 7.83, '6': 3.33 };
+const glassMat = new THREE.MeshPhysicalMaterial({ color: 0xffffff, transparent: true, opacity: 0.28, roughness: 0.05, metalness: 0, depthWrite: false, side: THREE.DoubleSide });
+const beerMat = new THREE.MeshStandardMaterial({ color: 0xd4821a, transparent: true, opacity: 0.95, roughness: 0.2, emissive: 0x6a3a06, emissiveIntensity: 0.7 });
+const foamMat = new THREE.MeshStandardMaterial({ color: 0xfff6e0, roughness: 0.95 });
+const glassGeo = new THREE.CylinderGeometry(0.038, 0.031, 0.15, 24, 1, true), baseGeo = new THREE.CylinderGeometry(0.031, 0.031, 0.006, 24), beerGeo = new THREE.CylinderGeometry(0.0345, 0.0285, 1, 24), foamGeo = new THREE.CylinderGeometry(0.035, 0.035, 0.012, 24);
+function makeBeer(bx, by, plan, kind) {   // bx, by in Blender metres; stands on the mat ribs or on the bar top
+  const onMat = MAT_X[plan].some(([a, b]) => bx >= a && bx <= b); const base = onMat ? 1.103 : 1.09;
+  const g = new THREE.Group(); g.position.copy(b2t(bx, by, base));
+  const wall = new THREE.Mesh(glassGeo, glassMat); wall.position.y = 0.075; wall.renderOrder = 3;
+  const bottom = new THREE.Mesh(baseGeo, glassMat); bottom.position.y = 0.003;
+  const beer = new THREE.Mesh(beerGeo, beerMat); beer.renderOrder = 2; const foam = new THREE.Mesh(foamGeo, foamMat);
+  g.add(bottom, beer, foam, wall); scene.add(g);
+  const b = { group: g, beer, foam, level: 1, plan, kind, busy: false, hit: [wall, beer, foam, bottom] }; b.hit.forEach(m => m.userData.beer = b); setLevel(b, 1); beers.push(b); return b;
+}
+function setLevel(b, L) { b.level = L; const h = 0.13 * Math.max(L, 0.001); b.beer.scale.y = h; b.beer.position.y = 0.006 + h / 2; b.foam.position.y = 0.006 + h + 0.006; b.foam.visible = L > 0.03; b.beer.visible = L > 0.005; }
+function animate(from, to, dur, step, done) { anims.push({ t0: performance.now(), from, to, dur, step, done }); }
+function runAnims(now) { if (!anims.length) return; anims = anims.filter(a => { const k = Math.min(1, (now - a.t0) / a.dur); a.step(a.from + (a.to - a.from) * k); if (k >= 1) { if (a.done) a.done(); return false; } return true; }); }
+function drink(b) {
+  if (b.busy) return; b.busy = true;
+  animate(b.level, 0, 2600, L => setLevel(b, L), () => {
+    if (b.kind === 'mat') setTimeout(() => animate(0, 1, 900, L => setLevel(b, L), () => { b.busy = false; }), 3500);   // the house tops the mat beers up again
+    else { scene.remove(b.group); beers.splice(beers.indexOf(b), 1); }                                                    // a served beer is gone until you order another
+  });
+}
+function beersVisible() { beers.forEach(b => { b.group.visible = S.stage === 'proposed' && S.concept === b.plan; }); }
+Object.entries(BEER_MATS).forEach(([plan, spots]) => spots.forEach(([x, y]) => makeBeer(x, y, plan, 'mat')));
+const bubble = $('#bubble');
+function showBubble(cx, cy, text, choices) {   // choices: [label, action or null (just close)]
+  bubble.innerHTML = (text ? `<p>${text}</p>` : '') + choices.map((c, i) => `<button data-i="${i}"${c[1] ? '' : ' class="quiet"'}>${c[0]}</button>`).join('');
+  bubble.style.display = 'block'; const r = canvas.getBoundingClientRect(); const w = bubble.offsetWidth, h = bubble.offsetHeight;
+  bubble.style.left = Math.min(Math.max(cx, w / 2 + 8), r.width - w / 2 - 8) + 'px'; bubble.style.top = Math.max(cy - 22, h + 14) + 'px';
+  bubble.querySelectorAll('button').forEach(btn => btn.addEventListener('click', e => { e.stopPropagation(); hideBubble(); const c = choices[+btn.dataset.i]; if (c[1]) c[1](); }));
+  clearTimeout(bubble._t); bubble._t = setTimeout(hideBubble, 9000);
+}
+function hideBubble() { bubble.style.display = 'none'; }
+bubble.addEventListener('pointerdown', e => e.stopPropagation());
+function orderBeer(bt) {
+  const bb = new THREE.Box3().setFromObject(bt.mesh); const plan = bt.model === 'c6' ? '6' : '12';
+  makeBeer((bb.min.x + bb.max.x) / 2 - 0.05, BAR_FRONT_Y[plan] + 0.1, plan, 'served'); beersVisible();
+}
+function tapScene(e) {
+  if (S.mode !== 'walk' && S.mode !== 'orbit') return;
+  const r = canvas.getBoundingClientRect(); const nd = new THREE.Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+  ray.setFromCamera(nd, persp);
+  const bh = ray.intersectObjects(beers.filter(b => b.group.visible).flatMap(b => b.hit), false)[0];
+  if (bh) { const b = bh.object.userData.beer; if (!b.busy && b.level > 0.5) showBubble(e.clientX, e.clientY, '', [['Drink the beer', () => drink(b)], ['Leave it', null]]); return; }
+  const th = ray.intersectObjects(bartenders.filter(t => t.mesh.visible).map(t => t.mesh), false)[0];
+  if (th && th.distance < 7) showBubble(e.clientX, e.clientY, "G'day, welcome to The Turtle, what can I get you?", [['A beer, thanks', () => orderBeer(th.object.userData.bartender)], ['Just looking', null]]);
+}
+
 /* ---------- pointer, wheel, keys, touch ---------- */
 let drag = null; const ray = new THREE.Raycaster(); const floorPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -0.1); let measurePts = [];
 /* long press on the floor in walk mode: offer to teleport there (phones have no keys to walk with) */
@@ -407,7 +464,7 @@ function offerTeleport(cx, cy) {
   teleportTo = hit.point.clone(); tpBtn.style.left = cx + 'px'; tpBtn.style.top = cy + 'px'; tpBtn.style.display = 'block'; clearTimeout(tpBtn._t); tpBtn._t = setTimeout(hideTeleport, 4000);
 }
 tpBtn.addEventListener('click', e => { e.stopPropagation(); if (teleportTo) walk.pos.set(teleportTo.x, P.eye, teleportTo.z); hideTeleport(); canvas.focus(); });
-canvas.addEventListener('pointerdown', e => { if (e.button !== 0 && e.pointerType === 'mouse') return; canvas.setPointerCapture(e.pointerId); drag = { x: e.clientX, y: e.clientY, moved: 0 }; canvas.focus(); hideTeleport(); clearTimeout(pressTimer); const cx = e.clientX, cy = e.clientY; pressTimer = setTimeout(() => { if (drag && drag.moved < 10) offerTeleport(cx, cy); }, 550); });
+canvas.addEventListener('pointerdown', e => { if (e.button !== 0 && e.pointerType === 'mouse') return; canvas.setPointerCapture(e.pointerId); drag = { x: e.clientX, y: e.clientY, moved: 0 }; canvas.focus(); hideTeleport(); hideBubble(); clearTimeout(pressTimer); const cx = e.clientX, cy = e.clientY; pressTimer = setTimeout(() => { if (drag && drag.moved < 10) offerTeleport(cx, cy); }, 550); });
 canvas.addEventListener('pointermove', e => {
   if (!drag) return; const dx = e.clientX - drag.x, dy = e.clientY - drag.y; drag.x = e.clientX; drag.y = e.clientY; drag.moved += Math.abs(dx) + Math.abs(dy);
   if (gyro.on && (S.mode === 'walk' || S.mode === 'photo')) { gyro.base += dx * 0.004; return; }
@@ -416,7 +473,7 @@ canvas.addEventListener('pointermove', e => {
   else if (S.mode === 'orbit') { orbit.theta -= dx * 0.006; orbit.phi = THREE.MathUtils.clamp(orbit.phi - dy * 0.006, 0.12, 1.52); }
   else { const u = 2 * plan.halfW / canvas.clientWidth; plan.cx -= dx * u; plan.cz -= dy * u; }
 });
-canvas.addEventListener('pointerup', e => { clearTimeout(pressTimer); if (drag && drag.moved < 6) { if (S.mode === 'photo') photoClick(e); else if (S.measure) measureClick(e); } drag = null; });
+canvas.addEventListener('pointerup', e => { clearTimeout(pressTimer); if (drag && drag.moved < 6) { if (S.mode === 'photo') photoClick(e); else if (S.measure) measureClick(e); else tapScene(e); } drag = null; });
 canvas.addEventListener('pointercancel', () => { clearTimeout(pressTimer); drag = null; });
 canvas.addEventListener('wheel', e => { e.preventDefault();
   if (S.mode === 'orbit') orbit.dist = THREE.MathUtils.clamp(orbit.dist * (1 + e.deltaY * 0.0012), 3, 90);
@@ -521,6 +578,7 @@ window.addEventListener('resize', fitCamera);
 let last = performance.now();
 (function loop(now) {
   const dt = Math.min(0.05, (now - last) / 1000); last = now; if (S.mode === 'walk') stepWalk(dt); updateCamera();
+  runAnims(performance.now());
   if (S.mode === 'photo') renderer.render(photoScene, photoCam); else if (S.mode === 'plan') renderer.render(scene, ortho); else if (LITE) renderer.render(scene, persp); else { renderPass.camera = persp; composer.render(); }
   requestAnimationFrame(loop);
 })(last);
