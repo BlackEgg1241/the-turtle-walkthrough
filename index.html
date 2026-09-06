@@ -356,7 +356,7 @@ function setMode(mode) {
   S.mode = mode; camera = mode === 'plan' ? ortho : mode === 'photo' ? photoCam : persp;
   renderer.setPixelRatio(Math.min(devicePixelRatio, mode === 'photo' ? 2 : (LITE ? 1.25 : 1.75)));   // photo mode is cheap to draw: give phones the sharper ratio there
   $$('#modes button').forEach(b => b.classList.toggle('on', b.dataset.mode === mode)); $('#scalebar').style.display = mode === 'plan' ? 'flex' : 'none';
-  if (mode === 'photo' && !photo.name) showPano(nearestPano()); $('#photo-tip').style.display = mode === 'photo' ? 'block' : 'none';
+  if (mode === 'photo' && (!photo.name || !activePanos().some(p => panoKey(p) === photo.name))) showPano(nearestPano()); $('#photo-tip').style.display = mode === 'photo' ? 'block' : 'none';
   applyVisibility(); fitCamera();
 }
 function updateCamera() {
@@ -553,7 +553,7 @@ $('#gyro').addEventListener('click', () => setGyro(!gyro.on));
   const end = e => { if (e.pointerId === id) { id = null; set(0, 0); } }; pad.addEventListener('pointerup', end); pad.addEventListener('pointercancel', end); }
 $('#stage').addEventListener('click', e => { const b = e.target.closest('button'); if (b) setStage(b.dataset.stage); });
 $('#concept').addEventListener('click', e => { const b = e.target.closest('button'); if (b) setConcept(b.dataset.concept); });
-$$('#modes button').forEach(b => b.addEventListener('click', () => { setMode(b.dataset.mode); if (b.dataset.mode === 'photo') showPano(photo.name || nearestPano()); canvas.focus(); }));
+$$('#modes button').forEach(b => b.addEventListener('click', () => { setMode(b.dataset.mode); if (b.dataset.mode === 'photo') showPano(nearestPano()); canvas.focus(); }));   // Photo always snaps to the 360 nearest to where you are standing
 $('#ck-roof').addEventListener('change', e => { S.roof = e.target.checked; applyVisibility(); }); $('#ck-people').addEventListener('change', e => { S.people = e.target.checked; applyVisibility(); });
 $('#ck-dims').addEventListener('change', e => { S.dims = e.target.checked; applyVisibility(); }); $('#ck-labels').addEventListener('change', e => { S.labels = e.target.checked; photo.hotspots.forEach(h => h.visible = S.labels); }); $('#ck-measure').addEventListener('change', e => setMeasure(e.target.checked));
 $('#panel-toggle').addEventListener('click', e => { e.stopPropagation(); $('#panel').classList.toggle('open'); });
