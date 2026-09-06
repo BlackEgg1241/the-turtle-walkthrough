@@ -12,7 +12,8 @@
   html,body{height:100%;}
   body{margin:0;background:#0f1113;color:var(--sand);font-family:var(--font-ui);font-size:14px;line-height:1.4;overflow:hidden;-webkit-font-smoothing:antialiased;}
   #app{position:fixed;inset:0;}
-  #view{position:absolute;inset:0;width:100%;height:100%;display:block;outline:none;touch-action:none;cursor:grab;}
+  #view{position:absolute;inset:0;width:100%;height:100%;display:block;outline:none;touch-action:none;cursor:grab;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;}
+  body{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;} #panel,#bubble p,#intro{-webkit-user-select:text;user-select:text;}
   #view:active{cursor:grabbing;} #view.measuring{cursor:crosshair;}
   .glass{background:var(--ink-2);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border:1px solid var(--sand-faint);border-radius:8px;box-shadow:0 10px 34px rgba(0,0,0,.35);}
   #brand{position:absolute;left:16px;top:16px;padding:12px 18px 12px;pointer-events:none;display:flex;gap:14px;align-items:center;}
@@ -689,6 +690,8 @@ function offerTeleport(cx, cy) {
   teleportTo = hit.point.clone(); tpBtn.style.left = cx + 'px'; tpBtn.style.top = cy + 'px'; tpBtn.style.display = 'block'; clearTimeout(tpBtn._t); tpBtn._t = setTimeout(hideTeleport, 4000);
 }
 tpBtn.addEventListener('click', e => { e.stopPropagation(); if (teleportTo) walk.pos.set(teleportTo.x, P.eye, teleportTo.z); hideTeleport(); canvas.focus(); });
+// a long press must be ours, not the phone's text-selection or writing-tools callout
+canvas.addEventListener('contextmenu', e => e.preventDefault()); canvas.addEventListener('touchstart', e => { if (e.cancelable) e.preventDefault(); }, { passive: false }); canvas.addEventListener('selectstart', e => e.preventDefault());
 canvas.addEventListener('pointerdown', e => { if (e.button !== 0 && e.pointerType === 'mouse') return; canvas.setPointerCapture(e.pointerId); drag = { x: e.clientX, y: e.clientY, moved: 0 }; canvas.focus(); hideTeleport(); hideBubble(); clearTimeout(pressTimer); const cx = e.clientX, cy = e.clientY; pressTimer = setTimeout(() => { if (drag && drag.moved < 10) offerTeleport(cx, cy); }, 550); });
 canvas.addEventListener('pointermove', e => {
   if (!drag) return; const dx = e.clientX - drag.x, dy = e.clientY - drag.y; drag.x = e.clientX; drag.y = e.clientY; drag.moved += Math.abs(dx) + Math.abs(dy);
