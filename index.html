@@ -260,7 +260,8 @@ function prepareScene(gltf, model, forceColl) {
     if (coll === 'People' && /two.?men/i.test(nm)) { const bt = { mesh: o, model }; bartenders.push(bt); o.userData.bartender = bt; } (byColl[coll] = byColl[coll] || []).push(o); o.userData.coll = coll;
     const bb = new THREE.Box3().setFromObject(o); o.userData.bb = bb; o.userData.size = Math.max(bb.max.x - bb.min.x, bb.max.y - bb.min.y, bb.max.z - bb.min.z);
     if (bb.min.y > 2.15 && coll !== 'Site') roofMeshes.push(o);
-    const h = bb.max.y - bb.min.y, blocks = coll !== 'People' && bb.min.y < 1.2 && bb.max.y > 0.45 && !/^(Door leaf|Ground|Front walkway|Walkway|Floor|Link floor|Verandah slab|Forecourt|Entry ramp|Slab edge|Breezeway floor)/.test(ttl || '') && (bb.max.x - bb.min.x) < 60;
+    const veg = mats.some(mm => mm && mm.alphaTest > 0 && !/^(Glass|Cutout)/.test(mm.name || ''));   // leaves and shrubs: alpha-cut foliage, walk and drive straight through
+    const h = bb.max.y - bb.min.y, blocks = coll !== 'People' && !veg && bb.min.y < 1.2 && bb.max.y > 0.45 && !/^(Door leaf|Ground|Front walkway|Walkway|Floor|Link floor|Verandah slab|Forecourt|Entry ramp|Slab edge|Breezeway floor)/.test(ttl || '') && (bb.max.x - bb.min.x) < 60;
     if (blocks) colliders.push({ x0: bb.min.x, x1: bb.max.x, z0: bb.min.z, z1: bb.max.z, o });
   });
   if (model === 'main') { steelSwap.monument = mon[0] || null; steelSwap.deepOcean = deep[0] || null; }
