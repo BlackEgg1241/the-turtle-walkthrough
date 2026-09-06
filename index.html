@@ -47,6 +47,11 @@
   #measure-tip,#photo-tip{position:absolute;left:50%;top:64px;transform:translateX(-50%);display:none;padding:8px 14px;font-size:13px;} #measure-tip b,#photo-tip b{color:var(--brass);}
   #touch-left{position:absolute;left:18px;bottom:18px;width:120px;height:120px;border-radius:50%;border:1px solid var(--sand-faint);background:rgba(20,21,22,.35);display:none;touch-action:none;}
   #bubble{position:absolute;display:none;transform:translate(-50%,-100%);padding:12px 14px;border:1px solid var(--brass);background:var(--ink-2);color:var(--sand);font:500 13.5px var(--font-ui);border-radius:10px;box-shadow:0 6px 24px rgba(0,0,0,.5);max-width:270px;z-index:6;} #bubble p{margin:0 0 9px;line-height:1.35;} #bubble button{display:inline-block;margin:2px 6px 2px 0;padding:8px 12px;border:1px solid var(--brass);border-radius:6px;background:var(--brass);color:#141516;font:600 12.5px var(--font-ui);cursor:pointer;} #bubble button.quiet{background:transparent;color:var(--sand-dim);border-color:var(--sand-faint);}
+  #dash{position:absolute;left:50%;bottom:18px;transform:translateX(-50%);display:none;align-items:center;gap:14px;padding:10px 14px;z-index:5;}
+  #dash .dial{display:flex;flex-direction:column;align-items:center;min-width:60px;} #dash .v{font:600 22px var(--font-ui);color:var(--sand);line-height:1;} #dash .u{font:500 10.5px var(--font-ui);color:var(--sand-dim);text-transform:uppercase;letter-spacing:.06em;margin-top:3px;}
+  #dash .fuel{display:flex;flex-direction:column;min-width:120px;} #dash .bar{height:10px;border:1px solid var(--sand-faint);border-radius:5px;overflow:hidden;background:rgba(0,0,0,.35);margin-top:4px;} #dash-fuel{height:100%;width:6%;background:linear-gradient(90deg,#c8431f,var(--brass));transition:width .2s;} #dash .ef{display:flex;justify-content:space-between;font:600 10px var(--font-ui);color:var(--sand-dim);margin-top:2px;}
+  #dash .msg{font:500 12px var(--font-ui);color:var(--sand);max-width:160px;line-height:1.3;} #dash .btns{display:flex;flex-direction:column;gap:6px;} #dash button{padding:8px 12px;border:1px solid var(--brass);border-radius:6px;background:var(--brass);color:#141516;font:600 12px var(--font-ui);cursor:pointer;white-space:nowrap;} #dash button.quiet{background:transparent;color:var(--sand-dim);border-color:var(--sand-faint);}
+  body.driving #gyro,body.driving #teleport,body.driving #hint{display:none!important;}
   #teleport{position:absolute;display:none;transform:translate(-50%,-130%);padding:10px 16px;border:1px solid var(--brass);background:var(--brass);color:#141516;font:600 13px var(--font-ui);border-radius:8px;cursor:pointer;box-shadow:0 4px 18px rgba(0,0,0,.45);white-space:nowrap;z-index:5;}
   #gyro{position:absolute;left:18px;bottom:152px;display:none;padding:9px 12px;border:1px solid var(--sand-faint);background:var(--ink-2);color:var(--sand);font:500 12px var(--font-ui);border-radius:6px;cursor:pointer;} #gyro.on{background:var(--brass);color:#141516;border-color:var(--brass);}
   #touch-left .knob{position:absolute;left:40px;top:40px;width:40px;height:40px;border-radius:50%;background:var(--brass);opacity:.85;}
@@ -63,7 +68,7 @@
   #intro ul li{display:flex;gap:10px;align-items:baseline;} #intro ul li span:first-child{min-width:118px;color:var(--sand-dim);}
   #intro button{appearance:none;border:0;background:var(--brass);color:#141516;font:600 13px var(--font-ui);padding:11px 18px;border-radius:5px;cursor:pointer;letter-spacing:.08em;text-transform:uppercase;}
   #intro button:hover{background:#d8b56b;} #intro .fine{margin:12px 0 0;font-size:11.5px;color:var(--sand-dim);}
-  @media (max-width:900px){ #panel{display:none;top:64px;width:min(296px,calc(100% - 32px));} #panel.open{display:flex;} #panel-toggle{display:block;} #brand{padding:10px 12px;} #brand .sub{display:none;} #modes{top:auto;bottom:18px;left:auto;right:16px;transform:none;flex-direction:column-reverse;gap:4px;} #modes button{padding:9px 14px;text-align:right;} #hint{display:none;} #scalebar{bottom:70px;} }
+  @media (max-width:900px){ #dash{bottom:150px;gap:10px;padding:8px 10px;} #dash .msg{display:none;} #panel{display:none;top:64px;width:min(296px,calc(100% - 32px));} #panel.open{display:flex;} #panel-toggle{display:block;} #brand{padding:10px 12px;} #brand .sub{display:none;} #modes{top:auto;bottom:18px;left:auto;right:16px;transform:none;flex-direction:column-reverse;gap:4px;} #modes button{padding:9px 14px;text-align:right;} #hint{display:none;} #scalebar{bottom:70px;} }
   @media (pointer:coarse){ #touch-left{display:block;} #gyro{display:block;} #hint{display:none;} #modes{top:auto;bottom:18px;left:auto;right:16px;transform:none;flex-direction:column-reverse;gap:4px;} #modes button{padding:9px 14px;text-align:right;} }
   @media (prefers-reduced-motion:reduce){ *{transition:none!important;animation:none!important;} }
 </style>
@@ -105,6 +110,7 @@
   <button id="gyro" title="Look around by turning and tilting the phone">Toggle phone look</button>
   <button id="teleport">Teleport here</button>
   <div id="bubble"></div>
+  <div id="dash" class="glass"><div class="dial"><span class="v" id="dash-speed">0</span><span class="u">km/h</span></div><div class="fuel"><span class="u">Fuel</span><div class="bar"><div id="dash-fuel"></div></div><div class="ef"><span>E</span><span>F</span></div></div><div class="msg" id="dash-msg"></div><div class="btns"><button id="dash-fill" hidden>Fill up</button><button id="dash-exit" class="quiet">Exit vehicle</button></div></div>
   <div id="loading"><div class="mark">The Turtle</div><div class="bar"><i id="loadbar"></i></div><div class="msg" id="loadmsg">Loading the model…</div></div>
   <div id="intro" style="display:none">
     <div class="card glass">
@@ -356,6 +362,7 @@ function setMode(mode) {
   S.mode = mode; camera = mode === 'plan' ? ortho : mode === 'photo' ? photoCam : persp;
   renderer.setPixelRatio(Math.min(devicePixelRatio, mode === 'photo' ? 2 : (LITE ? 1.25 : 1.75)));   // photo mode is cheap to draw: give phones the sharper ratio there
   $$('#modes button').forEach(b => b.classList.toggle('on', b.dataset.mode === mode)); $('#scalebar').style.display = mode === 'plan' ? 'flex' : 'none';
+  $('#dash').style.display = mode === 'drive' ? 'flex' : 'none'; document.body.classList.toggle('driving', mode === 'drive'); if (mode !== 'drive' && car.driving) { car.driving = false; parkCollider(); }
   if (mode === 'photo' && (!photo.name || !activePanos().some(p => panoKey(p) === photo.name))) showPano(nearestPano()); $('#photo-tip').style.display = mode === 'photo' ? 'block' : 'none';
   applyVisibility(); fitCamera();
 }
@@ -363,6 +370,7 @@ function updateCamera() {
   if (S.mode === 'walk') { persp.position.copy(walk.pos); persp.rotation.set(walk.pitch, walk.yaw, 0); }
   else if (S.mode === 'orbit') { const sp = Math.sin(orbit.phi); persp.position.set(orbit.target.x + orbit.dist * sp * Math.sin(orbit.theta), orbit.target.y + orbit.dist * Math.cos(orbit.phi), orbit.target.z + orbit.dist * sp * Math.cos(orbit.theta)); persp.lookAt(orbit.target); }
   else if (S.mode === 'plan') { ortho.position.set(plan.cx, 80, plan.cz); ortho.lookAt(plan.cx, 0, plan.cz); }
+  else if (S.mode === 'drive') { const f = carForward(), want = new THREE.Vector3(car.x - f.x * 7.5, 3.1, car.z - f.z * 7.5); driveCam.lerp(want, 1 - Math.exp(-6 * driveDt)); persp.position.copy(driveCam); persp.lookAt(car.x, 1.1, car.z); }
   else { photoCam.rotation.set(photo.pitch, photo.yaw, 0); }
   G.trees.children.forEach(m => { m.rotation.y = Math.atan2(camera.position.x - m.position.x, camera.position.z - m.position.z); });
 }
@@ -448,9 +456,83 @@ function tapScene(e) {
   ray.setFromCamera(nd, persp);
   const bh = ray.intersectObjects(beers.filter(b => b.group.visible).flatMap(b => b.hit), false)[0];
   if (bh) { const b = bh.object.userData.beer; if (!b.busy && b.level > 0.5) showBubble(e.clientX, e.clientY, '', [['Drink the beer', () => drink(b)], ['Leave it', null]]); return; }
+  const ch = ray.intersectObjects(car.group.children, true)[0];
+  if (ch && ch.distance < 12) { showBubble(e.clientX, e.clientY, 'Take the Land Cruiser for a drive?', [['Get in', () => startDrive()], ['Leave it', null]]); return; }
   const th = ray.intersectObjects(bartenders.filter(t => t.mesh.visible).map(t => t.mesh), false)[0];
   if (th && th.distance < 7) showBubble(e.clientX, e.clientY, "G'day, welcome to The Turtle, what can I get you?", [['A beer, thanks', () => orderBeer(th.object.userData.bartender)], ['Just looking', null]]);
 }
+
+/* ---------- a Land Cruiser to drive: tap it, drive to the bowsers, fill up, get out ---------- */
+const car = { x: 12.2, z: 4.6, h: 0.35, speed: 0, steer: 0, fuel: 0.06, driving: false, group: new THREE.Group(), wheels: [], front: [] };   // three.js coords; heading 0 faces +z (towards the highway)
+const driveCam = new THREE.Vector3(); let driveDt = 0.016;
+function carForward() { return new THREE.Vector3(Math.sin(car.h), 0, Math.cos(car.h)); }
+function carRight() { return new THREE.Vector3(Math.cos(car.h), 0, -Math.sin(car.h)); }
+(function buildCar() {
+  const paint = new THREE.MeshStandardMaterial({ color: 0xf1efe6, roughness: 0.35, metalness: 0.15 }), black = new THREE.MeshStandardMaterial({ color: 0x17181a, roughness: 0.7 });
+  const glass = new THREE.MeshStandardMaterial({ color: 0x223038, roughness: 0.05, metalness: 0.2, transparent: true, opacity: 0.85 }), tyre = new THREE.MeshStandardMaterial({ color: 0x151515, roughness: 0.95 });
+  const rim = new THREE.MeshStandardMaterial({ color: 0xcfd2d4, roughness: 0.4, metalness: 0.7 }), lamp = new THREE.MeshStandardMaterial({ color: 0xfff6d5, emissive: 0xfff2c0, emissiveIntensity: 0.6 }), tail = new THREE.MeshStandardMaterial({ color: 0xb01818, emissive: 0x7a0c0c, emissiveIntensity: 0.4 });
+  const g = car.group; const box = (w, h, d, m, x, y, z) => { const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); b.position.set(x, y, z); b.castShadow = !LITE; g.add(b); return b; };
+  box(1.86, 0.72, 4.7, paint, 0, 0.82, 0);                       // tub, sills to waist
+  box(1.8, 0.2, 1.4, paint, 0, 1.28, 1.62);                       // bonnet
+  box(1.86, 0.78, 3.25, paint, 0, 1.57, -0.7);                    // cabin shell
+  box(1.5, 0.46, 3.1, glass, 0, 1.63, -0.7);                      // side glass band (sits inside the pillars)
+  [[-0.9, 0.55], [0.9, 0.55], [-0.9, -1.4], [0.9, -1.4], [-0.9, -2.28], [0.9, -2.28]].forEach(([x, z]) => box(0.1, 0.5, 0.12, paint, x, 1.6, z));   // pillars
+  const ws = box(1.7, 0.55, 0.05, glass, 0, 1.62, 0.93); ws.rotation.x = -0.28;                                                              // windscreen
+  box(1.6, 0.45, 0.05, glass, 0, 1.6, -2.31);                                                                                                // rear glass
+  box(1.9, 0.08, 3.0, paint, 0, 1.98, -0.75);                     // roof
+  [[-0.85, -0.75], [0.85, -0.75]].forEach(([x, z]) => box(0.05, 0.09, 2.6, black, x, 2.06, z)); [[-2.0], [0.5]].forEach(([z]) => box(1.75, 0.05, 0.05, black, 0, 2.06, z));   // roof rack
+  box(0.14, 0.9, 0.16, black, -1.0, 1.55, 0.95);                  // snorkel
+  box(1.95, 0.08, 0.08, black, 0, 0.62, 2.45); box(1.95, 0.08, 0.08, black, 0, 0.95, 2.45); [[-0.7], [0.7]].forEach(([x]) => box(0.08, 0.5, 0.08, black, x, 0.78, 2.45));   // bull bar
+  box(1.1, 0.3, 0.06, black, 0, 0.98, 2.36); [[-0.68], [0.68]].forEach(([x]) => box(0.3, 0.2, 0.05, lamp, x, 0.95, 2.37)); [[-0.75], [0.75]].forEach(([x]) => box(0.2, 0.3, 0.05, tail, x, 0.9, -2.37));   // grille, lights
+  [[-1.0], [1.0]].forEach(([x]) => box(0.12, 0.16, 0.2, black, x, 1.5, 0.72));   // mirrors
+  const wheelGeo = new THREE.CylinderGeometry(0.4, 0.4, 0.27, 20), rimGeo = new THREE.CylinderGeometry(0.24, 0.24, 0.28, 16);
+  [[-0.86, 1.5], [0.86, 1.5], [-0.86, -1.5], [0.86, -1.5]].forEach(([x, z]) => { const w = new THREE.Group(); const ty = new THREE.Mesh(wheelGeo, tyre); ty.rotation.z = Math.PI / 2; const rm = new THREE.Mesh(rimGeo, rim); rm.rotation.z = Math.PI / 2; ty.castShadow = !LITE; w.add(ty, rm); w.position.set(x, 0.4, z); g.add(w); car.wheels.push(w); if (z > 0) car.front.push(w); });
+  const spare = new THREE.Mesh(wheelGeo, tyre); spare.rotation.x = Math.PI / 2; spare.position.set(0.45, 1.05, -2.5); g.add(spare);
+  g.position.set(car.x, 0, car.z); g.rotation.y = car.h; scene.add(g);
+})();
+let carCollider = { x0: 0, x1: 0, z0: 0, z1: 0, o: car.group };
+function parkCollider() { const f = carForward(), r = carRight(); const cx = [car.x + f.x * 2.4, car.x - f.x * 2.4, car.x + r.x * 1.0, car.x - r.x * 1.0], cz = [car.z + f.z * 2.4, car.z - f.z * 2.4, car.z + r.z * 1.0, car.z - r.z * 1.0]; carCollider.x0 = Math.min(...cx); carCollider.x1 = Math.max(...cx); carCollider.z0 = Math.min(...cz); carCollider.z1 = Math.max(...cz); if (!colliders.includes(carCollider)) colliders.push(carCollider); }
+const BOWSERS = [b2t(-16.2, -8.9, 0), b2t(-16.2, -15.7, 0)];   // the two pumps under the canopy
+const fill = { stage: 0, litres: 0 };
+function dashMsg(m) { $('#dash-msg').textContent = m; }
+function startDrive() {
+  hideBubble(); colliders.splice(colliders.indexOf(carCollider), 1); car.driving = true; car.speed = 0; if (gyro.on) setGyro(false);
+  const f = carForward(); driveCam.set(car.x - f.x * 7.5, 3.1, car.z - f.z * 7.5); setMode('drive');
+  dashMsg(navigator.maxTouchPoints > 1 ? 'Joystick: up to drive, sideways to steer.' : 'W / S drive, A / D steer.'); updateDash();
+}
+function exitCar() {
+  const r = carRight(); car.speed = 0; walk.pos.set(car.x + r.x * 1.9, P.eye, car.z + r.z * 1.9); walk.yaw = Math.atan2(r.x, r.z); walk.pitch = -0.05;   // out the driver's door, looking back at the car
+  fill.stage = 0; setMode('walk');
+}
+function stepDrive(dt) {
+  driveDt = dt;
+  let th = 0, st = 0; if (keys.KeyW || keys.ArrowUp) th += 1; if (keys.KeyS || keys.ArrowDown) th -= 1; if (keys.KeyD || keys.ArrowRight) st += 1; if (keys.KeyA || keys.ArrowLeft) st -= 1; th += -joy.y; st += joy.x;
+  th = THREE.MathUtils.clamp(th, -1, 1); st = THREE.MathUtils.clamp(st, -1, 1);
+  if (car.fuel <= 0 && th > 0) th = 0;
+  car.steer += (st * 0.5 - car.steer) * Math.min(1, dt * 6);
+  const braking = (th < 0 && car.speed > 0.2) || (th > 0 && car.speed < -0.2);
+  let a = braking ? -Math.sign(car.speed) * 7 : th * (car.speed >= 0 ? 3.6 : 2.2); a -= car.speed * 0.35 + Math.sign(car.speed) * (th ? 0 : 1.6) * (Math.abs(car.speed) > 0.05 ? 1 : 0);
+  car.speed = THREE.MathUtils.clamp(car.speed + a * dt, -4, 14); if (!th && Math.abs(car.speed) < 0.05) car.speed = 0;
+  const turn = car.speed / 3.0 * Math.tan(car.steer); car.h += turn * dt;
+  const f = carForward(), nx = car.x + f.x * car.speed * dt, nz = car.z + f.z * car.speed * dt, list = activeColliders();
+  const hit = [2.2, -2.2].some(k => blocked(nx + f.x * k, nz + f.z * k, list, 0.95));
+  if (hit) car.speed = 0; else { car.x = THREE.MathUtils.clamp(nx, -70, 70); car.z = THREE.MathUtils.clamp(nz, -70, 70); }
+  car.fuel = Math.max(0, car.fuel - Math.abs(car.speed) * dt * 0.00025);
+  car.group.position.set(car.x, 0, car.z); car.group.rotation.y = car.h; car.wheels.forEach(w => { w.children.forEach(m => m.rotation.x += car.speed * dt / 0.4); }); car.front.forEach(w => w.rotation.y = car.steer);
+  updateDash();
+}
+function updateDash() {
+  $('#dash-speed').textContent = Math.round(Math.abs(car.speed) * 3.6); $('#dash-fuel').style.width = Math.round(car.fuel * 100) + '%';
+  const near = BOWSERS.some(b => Math.hypot(b.x - car.x, b.z - car.z) < 4.5), stopped = Math.abs(car.speed) < 0.2; const btn = $('#dash-fill');
+  if (fill.stage === 0) { btn.hidden = !(near && stopped); btn.textContent = 'Fill up'; if (near && stopped) dashMsg(car.fuel < 0.98 ? 'At the pump.' : 'Tank is already full.'); else if (car.fuel <= 0) dashMsg('Out of fuel. The pumps are under the canopy.'); }
+}
+$('#dash-fill').addEventListener('click', () => {
+  if (fill.stage === 0) { fill.stage = 1; $('#dash-fill').hidden = true; dashMsg('Nozzle in, filling…'); const from = car.fuel;
+    animate(0, 1, 6000, k => { car.fuel = from + (1 - from) * k; fill.litres = Math.round((car.fuel - from) * 130); dashMsg('Filling… ' + fill.litres + ' L'); $('#dash-fuel').style.width = Math.round(car.fuel * 100) + '%'; }, () => { fill.stage = 2; $('#dash-fill').textContent = 'Hang up the nozzle'; $('#dash-fill').hidden = false; dashMsg('Full. ' + fill.litres + ' L in.'); }); }
+  else if (fill.stage === 2) { fill.stage = 0; $('#dash-fill').hidden = true; dashMsg('Tank full. Off you go.'); }
+});
+$('#dash-exit').addEventListener('click', exitCar);
+parkCollider(); updateDash();
 
 /* ---------- pointer, wheel, keys, touch ---------- */
 let drag = null; const ray = new THREE.Raycaster(); const floorPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -0.1); let measurePts = [];
@@ -579,7 +661,7 @@ window.addEventListener('error', e => { const l = $('#loading'); if (l && l.styl
 window.addEventListener('resize', fitCamera);
 let last = performance.now();
 (function loop(now) {
-  const dt = Math.min(0.05, (now - last) / 1000); last = now; if (S.mode === 'walk') stepWalk(dt); updateCamera();
+  const dt = Math.min(0.05, (now - last) / 1000); last = now; if (S.mode === 'walk') stepWalk(dt); else if (S.mode === 'drive') stepDrive(dt); updateCamera();
   runAnims(performance.now());
   if (S.mode === 'photo') renderer.render(photoScene, photoCam); else if (S.mode === 'plan') renderer.render(scene, ortho); else if (LITE) renderer.render(scene, persp); else { renderPass.camera = persp; composer.render(); }
   requestAnimationFrame(loop);
