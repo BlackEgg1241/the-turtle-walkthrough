@@ -653,7 +653,7 @@ function stepDrive(dt) {
 function updateDash() {
   $('#dash-speed').textContent = Math.round(Math.abs(car.speed) * 3.6); $('#dash-fuel').style.width = Math.round(car.fuel * 100) + '%';
   const near = BOWSERS.some(b => Math.hypot(b.x - car.x, b.z - car.z) < 4.5), stopped = Math.abs(car.speed) < 0.2; const btn = $('#dash-fill');
-  if (fill.stage === 0) { btn.hidden = !(near && stopped); btn.textContent = 'Fill up'; if (near && stopped) dashMsg(car.fuel < 0.98 ? 'At the pump.' : 'Tank is already full.'); else if (car.fuel <= 0) dashMsg('Out of fuel. The pumps are under the canopy.'); }
+  if (fill.stage === 0) { const canFill = near && stopped && car.fuel < 0.97; btn.hidden = !canFill; btn.textContent = 'Fill up'; if (canFill) dashMsg('At the pump.'); else if (near && stopped) dashMsg('Tank is full.'); else if (car.fuel <= 0) dashMsg('Out of fuel. The pumps are under the canopy.'); }
 }
 $('#dash-fill').addEventListener('click', () => {
   if (fill.stage === 0) { fill.stage = 1; $('#dash-fill').hidden = true; dashMsg('Nozzle in, filling…'); const from = car.fuel;
