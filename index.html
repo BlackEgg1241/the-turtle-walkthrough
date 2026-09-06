@@ -586,11 +586,12 @@ function loadCarModel() {   // swap the built-up car for the downloaded one once
   if (!isURL(DATA.carModel)) return;
   new THREE.GLTFLoader().load(DATA.carModel, gltf => {
     const m = gltf.scene; m.updateMatrixWorld(true);
-    const bb = new THREE.Box3().setFromObject(m), size = bb.getSize(new THREE.Vector3()); const along = size.x > size.z ? 'x' : 'z'; const s = 4.95 / Math.max(size.x, size.z);
-    m.scale.setScalar(s); m.updateMatrixWorld(true); const bb2 = new THREE.Box3().setFromObject(m), c = bb2.getCenter(new THREE.Vector3());
+    const bb = new THREE.Box3(); m.traverse(o => { if (o.isMesh && !/plane/i.test(o.name)) bb.expandByObject(o); });   // the body only, not the baked shadow plane under it
+    const size = bb.getSize(new THREE.Vector3()); const along = size.x > size.z ? 'x' : 'z'; const s = 4.75 / Math.max(size.x, size.z);   // 60-series wagon: 4.75 m long, 1.80 wide, 1.80 high
+    m.scale.setScalar(s); m.updateMatrixWorld(true); const bb2 = new THREE.Box3(); m.traverse(o => { if (o.isMesh && !/plane/i.test(o.name)) bb2.expandByObject(o); }); const c = bb2.getCenter(new THREE.Vector3());
     const wrap = new THREE.Group(); m.position.set(-c.x, -bb2.min.y, -c.z); wrap.add(m); wrap.rotation.y = (along === 'x' ? Math.PI / 2 : 0) + CAR_MODEL_YAW;
     m.traverse(o => { if (!o.isMesh) return; o.castShadow = !LITE; const mats = Array.isArray(o.material) ? o.material : [o.material];
-      mats.forEach(mt => { if (!mt) return; mt.envMapIntensity = LITE ? 0.3 : 0.6; if (/plane/i.test(o.name)) { mt.transparent = true; mt.depthWrite = false; o.position.y += 0.01; o.castShadow = false; } else if (mt.transparent) { mt.depthWrite = true; mt.alphaTest = 0.05; } mt.needsUpdate = true; }); });
+      mats.forEach(mt => { if (!mt) return; mt.envMapIntensity = LITE ? 0.3 : 0.6; if (/plane/i.test(o.name)) { mt.transparent = true; mt.depthWrite = false; mt.polygonOffset = true; mt.polygonOffsetFactor = -4; mt.polygonOffsetUnits = -4; o.renderOrder = 1; o.castShadow = false; o.receiveShadow = false; } else if (mt.transparent) { mt.depthWrite = true; mt.alphaTest = 0.05; } mt.needsUpdate = true; }); });
     car.group.children.slice().forEach(ch => car.group.remove(ch)); car.wheels = []; car.front = []; car.group.add(wrap); console.log('TTCAR model loaded');
   }, undefined, () => console.log('TTCAR model failed, built-up car kept'));
 }
