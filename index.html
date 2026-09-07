@@ -180,11 +180,11 @@ console.log('TTLITE ' + LITE);
 const srcOf = (o, k) => o[k + '_url'] ? o[k + '_url'] : 'data:image/' + (k === 'png' ? 'png' : 'jpeg') + ';base64,' + o[k];
 const b64buf = b64 => { const bin = atob(b64); const u8 = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i); return u8.buffer; };
 const P = { W: 12.07, D: 12.0, Dtoday: 6.7, ov: 0.5, gap: 1.5, clear: 2.4, wallT: 0.1, eye: 1.6, backBarD: 0.6, walkway: 2.0, barD: 1.0, barEndGap: 1.0 };
-const PLANS = { '12': { D: 12.0, walkway: 2.0, barSE: 1.0, linkY: null }, '6': { D: 6.7, walkway: 1.2, barSE: 0.0, barNE: 2.8, linkY: 4.75 } };   // compact: the bar stops 2.8 m short of both end walls (link zone west, booths east)   // per-plan layout numbers, must match tt_bar.py
+const PLANS = { '12': { D: 12.0, walkway: 2.0, barSE: 1.0, linkY: null }, '6': { D: 6.7, walkway: 1.2, barSE: 1.8, barNE: 2.8, linkY: 4.4 } };   // compact: the bar stops 2.8 m short of both end walls (link zone west, booths east)   // per-plan layout numbers, must match tt_bar.py
 const S = { mode: 'walk', stage: 'proposed', concept: '6', roof: true, people: true, dims: false, measure: false, labels: true };
 // Blender-space positions of the 360° photo spots (must match tt_scene.py)
 const PANO_POS = { '12:Pano_carpark': [P.W / 2 + 1.5, -11.5, 1.6], '12:Pano_deck': [P.W / 2, -2.4, 1.6], '12:Pano_doorway': [P.W / 2, 1.4, 1.6], '12:Pano_tables': [P.W / 2 + 1, 4.2, 1.6], '12:Pano_at_the_bar': [5.2, 6.7, 1.55], '12:Pano_behind_the_bar': [P.W / 2 + 0.5, 9.8, 1.6], '12:Pano_link': [-0.75, 6.4, 1.6],
-  '6:Pano_carpark': [P.W / 2 + 1.5, -11.5, 1.6], '6:Pano_deck': [P.W / 2, -2.4, 1.6], '6:Pano_doorway': [P.W / 2, 1.4, 1.6], '6:Pano_end_zone': [1.8, 2.5, 1.6], '6:Pano_at_the_bar': [6.535, 2.13, 1.55], '6:Pano_behind_the_bar': [5.68, 4.93, 1.6], '6:Pano_link': [-0.75, 4.4, 1.6] };
+  '6:Pano_carpark': [P.W / 2 + 1.5, -11.5, 1.6], '6:Pano_deck': [P.W / 2, -2.4, 1.6], '6:Pano_doorway': [P.W / 2, 1.4, 1.6], '6:Pano_end_zone': [1.5, 2.6, 1.6], '6:Pano_at_the_bar': [6.535, 2.13, 1.55], '6:Pano_behind_the_bar': [6.135, 4.93, 1.6], '6:Pano_link': [-0.75, 4.4, 1.6] };
 const PANO_LABEL = { 'Pano_carpark': 'Carpark', 'Pano_deck': 'Under the awning', 'Pano_doorway': 'Doorway', 'Pano_tables': 'Tables', 'Pano_end_zone': 'South-east end', 'Pano_at_the_bar': 'At the bar', 'Pano_behind_the_bar': 'Behind the bar', 'Pano_link': 'Link from the roadhouse' };
 const panoKey = p => (p.concept || '12') + ':' + p.name, activePanos = () => DATA.panos.filter(p => (p.concept || '12') === S.concept);
 
@@ -458,8 +458,8 @@ function photoClick(e) {
 
 /* ---------- beers on the rubber mats, and a bartender who will pour you one ---------- */
 const beers = [], bartenders = []; let anims = []; let drinkPitch = 0;
-const BEER_MATS = { '12': [[7.435, 7.98]], '6': [[6.48, 3.48]] };   // Blender x,y of the house beer on the far mat, per plan; the mat in front of the bartenders stays clear for ordered beers
-const MAT_X = { '12': [[4.485, 5.385], [6.685, 7.585]], '6': [[3.53, 4.43], [5.73, 6.63]] };
+const BEER_MATS = { '12': [[7.435, 7.98]], '6': [[6.935, 3.48]] };   // Blender x,y of the house beer on the far mat, per plan; the mat in front of the bartenders stays clear for ordered beers
+const MAT_X = { '12': [[4.485, 5.385], [6.685, 7.585]], '6': [[3.985, 4.885], [6.185, 7.085]] };
 const BAR_FRONT_Y = { '12': 7.83, '6': 3.33 };
 const GLASS_H = 0.15, R_TOP = 0.038, INNER_Y0 = 0.006, INNER_H = 0.138;   // a pint: 150 mm tall, 76 mm across the rim
 const glassMat = new THREE.MeshPhysicalMaterial({ color: 0xffffff, transparent: true, opacity: 0.28, roughness: 0.05, metalness: 0, depthWrite: false, side: THREE.DoubleSide });
@@ -761,7 +761,7 @@ function measureClick(e) {
 }
 function setMeasure(on) { S.measure = on; $('#ck-measure').checked = on; canvas.classList.toggle('measuring', on); if (on) measureTip('Click the first point on the floor'); else { measureTip(''); measurePts = []; while (G.measure.children.length) G.measure.remove(G.measure.children[0]); } }
 const VP = { '12': { bar: [4.6, 6.7, 1.55, 0.3], staff: [P.W / 2 + 1.6, 9.8, P.eye, Math.PI], link: [-P.gap + 0.3, 6.4, P.eye, -Math.PI / 2] },
-             '6': { bar: [7.0, 2.3, 1.55, 0.1], staff: [7.1, 4.95, P.eye, Math.PI], link: [-P.gap + 0.3, 4.75, P.eye, -Math.PI / 2] } };   // walk viewpoints that move with the plan
+             '6': { bar: [7.0, 2.3, 1.55, 0.1], staff: [7.1, 4.95, P.eye, Math.PI], link: [-P.gap + 0.3, 4.4, P.eye, -Math.PI / 2] } };   // walk viewpoints that move with the plan
 const goVP = k => { const v = VP[S.concept][k]; setMode('walk'); walk.pos.copy(b2t(v[0], v[1], v[2])); walk.yaw = v[3]; walk.pitch = -0.05; };
 const VIEWS = [
   ['Carpark, facing the entrance', () => { setMode('walk'); walk.pos.copy(b2t(P.W / 2 + 1.5, -12, P.eye)); walk.yaw = 0; walk.pitch = 0.02; }],
