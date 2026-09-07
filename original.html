@@ -1,9 +1,7 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="The Turtle: to-scale walkthrough of a bar concept at Wooramel Roadhouse"></head><body><title>The Turtle</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600&family=Archivo:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
+@font-face{font-family:Jost;src:url('./assets/roadhouse/vendor/Jost.ttf') format('truetype');font-weight:100 900;font-display:swap;}@font-face{font-family:Archivo;src:url('./assets/roadhouse/vendor/Manrope.ttf') format('truetype');font-weight:100 900;font-display:swap;}
   :root{
     --ink:#141516; --ink-2:rgba(20,21,22,.86); --sand:#efe9dc; --sand-dim:rgba(239,233,220,.62); --sand-faint:rgba(239,233,220,.14);
     --brass:#c8a35a; --brass-deep:#9a7a3a; --warn:#e2b04a;
@@ -130,15 +128,15 @@
     </div>
   </div>
 </div>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/RGBELoader.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/EffectComposer.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
+<script src="./assets/roadhouse/vendor/three.min.js"></script>
+<script src="./assets/roadhouse/vendor/GLTFLoader.js"></script>
+<script src="./assets/roadhouse/vendor/RGBELoader.js"></script>
+<script src="./assets/roadhouse/vendor/EffectComposer.js"></script>
+<script src="./assets/roadhouse/vendor/RenderPass.js"></script>
+<script src="./assets/roadhouse/vendor/ShaderPass.js"></script>
+<script src="./assets/roadhouse/vendor/CopyShader.js"></script>
+<script src="./assets/roadhouse/vendor/LuminosityHighPassShader.js"></script>
+<script src="./assets/roadhouse/vendor/UnrealBloomPass.js"></script>
 <script id="data-scene" type="application/json">"./assets/scene.glb"</script>
 <script id="data-sky" type="application/octet-stream">"./assets/sky.jpg"</script>
 <script id="data-panos" type="application/json">[{"name": "Pano_at_the_bar", "concept": "12", "jpg_url": "./assets/pano/Pano_at_the_bar.jpg"}, {"name": "Pano_behind_the_bar", "concept": "12", "jpg_url": "./assets/pano/Pano_behind_the_bar.jpg"}, {"name": "Pano_carpark", "concept": "12", "jpg_url": "./assets/pano/Pano_carpark.jpg"}, {"name": "Pano_deck", "concept": "12", "jpg_url": "./assets/pano/Pano_deck.jpg"}, {"name": "Pano_doorway", "concept": "12", "jpg_url": "./assets/pano/Pano_doorway.jpg"}, {"name": "Pano_link", "concept": "12", "jpg_url": "./assets/pano/Pano_link.jpg"}, {"name": "Pano_tables", "concept": "12", "jpg_url": "./assets/pano/Pano_tables.jpg"}, {"name": "Pano_at_the_bar", "concept": "6", "jpg_url": "./assets/pano6/Pano_at_the_bar.jpg"}, {"name": "Pano_behind_the_bar", "concept": "6", "jpg_url": "./assets/pano6/Pano_behind_the_bar.jpg"}, {"name": "Pano_carpark", "concept": "6", "jpg_url": "./assets/pano6/Pano_carpark.jpg"}, {"name": "Pano_deck", "concept": "6", "jpg_url": "./assets/pano6/Pano_deck.jpg"}, {"name": "Pano_doorway", "concept": "6", "jpg_url": "./assets/pano6/Pano_doorway.jpg"}, {"name": "Pano_end_zone", "concept": "6", "jpg_url": "./assets/pano6/Pano_end_zone.jpg"}, {"name": "Pano_link", "concept": "6", "jpg_url": "./assets/pano6/Pano_link.jpg"}]</script>
