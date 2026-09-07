@@ -254,7 +254,8 @@ function loadConcept6() {   // third model: the compact plan on the existing roo
 }
 function loadToday() {   // second, small model: the existing carport at the measured depth, baked the same way
   if (!isURL(DATA.today)) return Promise.resolve(null);
-  return new Promise(res => new THREE.GLTFLoader().load(DATA.today, res, undefined, () => res(null)));
+  const lite = DATA.today.replace('today.glb', 'today_lite.glb'), L = new THREE.GLTFLoader();   // phones: the 256 px copy, falling back to the full one
+  return new Promise(res => { const full = () => L.load(DATA.today, res, undefined, () => res(null)); if (LITE && lite !== DATA.today) L.load(lite, res, undefined, full); else full(); });
 }
 const LAMP_W = [[/pendant/i, 55], [/Back wall spot/i, 120], [/Track spot/i, 70], [/Wine wall/i, 60], [/Downlight/i, 45], [/Awning light|Link light/i, 40], [/Marlin/i, 25]];
 function lampI(name) { const hit = LAMP_W.find(([re]) => re.test(name || '')); return (hit ? hit[1] : 40) / (4 * Math.PI); }   // Cycles lamp watts -> W/sr for three's physically-correct lights
@@ -701,7 +702,8 @@ parkCollider(); updateDash();
 const CAR_MODEL_YAW = 0;   // extra turn if the downloaded model's nose is not on +z
 function loadCarModel() {   // swap the built-up car for the downloaded one once it arrives; the built-up one stays if it fails
   if (!isURL(DATA.carModel)) return;
-  new THREE.GLTFLoader().load(DATA.carModel, gltf => {
+  const carURL = LITE ? DATA.carModel.replace('land_cruiser.glb', 'land_cruiser_lite.glb') : DATA.carModel, carLoader = new THREE.GLTFLoader();   // phones: the 256 px copy, falling back to the full one
+  const onCar = gltf => {
     const m = gltf.scene; m.updateMatrixWorld(true);
     const bb = new THREE.Box3(); m.traverse(o => { if (o.isMesh && !/plane/i.test(o.name)) bb.expandByObject(o); });   // the body only, not the baked shadow plane under it
     const size = bb.getSize(new THREE.Vector3()); const along = size.x > size.z ? 'x' : 'z'; const s = 4.75 / Math.max(size.x, size.z);   // 60-series wagon: 4.75 m long, 1.80 wide, 1.80 high
@@ -710,7 +712,8 @@ function loadCarModel() {   // swap the built-up car for the downloaded one once
     m.traverse(o => { if (!o.isMesh) return; o.castShadow = !LITE; const mats = Array.isArray(o.material) ? o.material : [o.material];
       mats.forEach(mt => { if (!mt) return; mt.envMapIntensity = LITE ? 0.3 : 0.6; if (/plane/i.test(o.name)) { mt.transparent = true; mt.depthWrite = false; mt.polygonOffset = true; mt.polygonOffsetFactor = -4; mt.polygonOffsetUnits = -4; o.renderOrder = 1; o.castShadow = false; o.receiveShadow = false; } else if (mt.transparent) { mt.depthWrite = true; mt.alphaTest = 0.05; } mt.needsUpdate = true; }); });
     car.group.children.slice().forEach(ch => car.group.remove(ch)); car.wheels = []; car.front = []; car.group.add(wrap); console.log('TTCAR model loaded');
-  }, undefined, () => console.log('TTCAR model failed, built-up car kept'));
+  };
+  carLoader.load(carURL, onCar, undefined, () => { if (carURL !== DATA.carModel) carLoader.load(DATA.carModel, onCar, undefined, () => console.log('TTCAR model failed, built-up car kept')); else console.log('TTCAR model failed, built-up car kept'); });
 }
 
 /* ---------- pointer, wheel, keys, touch ---------- */
